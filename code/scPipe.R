@@ -21,9 +21,6 @@ sample_sheet <- as(
 
 # Key variables ----------------------------------------------------------------
 
-
-# Key variables ----------------------------------------------------------------
-
 rpis <- unique(sample_sheet$illumina_index_index_number_separate_index_read)
 names(rpis) <- rpis
 sequencing_runs <- tapply(
