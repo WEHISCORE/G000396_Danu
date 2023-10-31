@@ -1,6 +1,6 @@
 # Prepare sample sheet (S000443) for use with scPipe.R
 # Peter Hickey
-# 2023-09-12
+# 2023-10-31
 
 # Setup ------------------------------------------------------------------------
 
@@ -9,9 +9,15 @@ library(readxl)
 library(dplyr)
 library(janitor)
 
-# Construct S000443 sample sheet -----------------------------------------------
+# TODO: UP TO HERE Update for S000448
 
-file_S000443 <- here(
+# Construct S000443/S000448 sample sheet ---------------------------------------
+
+# NOTE: Same library was sequenced over 2 runs:
+#       S000443: MiSeq Nano
+#       S000448: NextSeq
+
+file_S000443_S000448 <- here(
   "data",
   "sample_sheets",
   "G000396_Danu_MB_S000443_SeqprimerSept23.xlsx")
@@ -19,7 +25,7 @@ file_S000443 <- here(
 # NOTE: Header row is split across 2 lines, which I combine into 1 before
 #       reading in the rest of the spreadsheet.
 header_row <- read_excel(
-  path = file_S000443,
+  path = file_S000443_S000448,
   sheet = "Samples",
   skip = 2,
   n_max = 1)
@@ -28,7 +34,7 @@ header_row <- read_excel(
 header_row <- paste0(colnames(header_row), header_row[1, ])
 header_row <- gsub("^\\.\\.\\.[0-9]+", "", header_row)
 sample_sheet <- read_excel(
-  path = file_S000443,
+  path = file_S000443_S000448,
   sheet = "Samples",
   # NOTE: Manually specifying range because there are some elements in column J
   #       that shouldn't be there or included.
@@ -76,7 +82,7 @@ sample_sheet <- mutate(
       use.names = TRUE)),
   # NOTE: Making everything RPI-43.
   illumina_index_index_number_separate_index_read = "RPI-43",
-  sequencing_run = "S000443") |>
+  sequencing_run = "S000443_S000448") |>
   arrange(plate_number, well_position) |>
   select(plate_number, everything())
 
@@ -93,4 +99,4 @@ stopifnot(!anyNA(sample_sheet$well_position))
 
 write.csv(
   sample_sheet,
-  file = here("data", "sample_sheets", "S000443.sample_sheet.csv"))
+  file = here("data", "sample_sheets", "S000443_S000448.sample_sheet.csv"))
