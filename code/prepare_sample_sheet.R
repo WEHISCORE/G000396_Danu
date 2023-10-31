@@ -9,8 +9,6 @@ library(readxl)
 library(dplyr)
 library(janitor)
 
-# TODO: UP TO HERE Update for S000448
-
 # Construct S000443/S000448 sample sheet ---------------------------------------
 
 # NOTE: Same library was sequenced over 2 runs:
