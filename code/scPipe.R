@@ -1,6 +1,6 @@
 # Process S000443 (G000396) with scPipe
 # Peter Hickey
-# 2023-10-18
+# 2023-10-31
 
 # Setup ------------------------------------------------------------------------
 
@@ -9,13 +9,13 @@ library(scPipe)
 library(Rsubread)
 library(BiocParallel)
 
-register(MulticoreParam(workers = 1))
+register(MulticoreParam(workers = 8))
 
 # Load sample sheet ------------------------------------------------------------
 
 sample_sheet <- as(
   read.csv(
-    here("data", "sample_sheets", "S000443.sample_sheet.csv"),
+    here("data", "sample_sheets", "S000443_S000448.sample_sheet.csv"),
     row.names = 1),
   "DataFrame")
 
@@ -47,14 +47,23 @@ organism <- "hsapiens_gene_ensembl"
 gene_id_type <- "ensembl_gene_id"
 
 # FASTQ files
-r1_fq <- grep(
-  "Undetermined",
-  list.files(
-    path = here("extdata", "S000443", "data", "fastq"),
-    full.names = TRUE,
-    pattern = glob2rx("*R1*.fastq.gz")),
-  value = TRUE,
-  invert = TRUE)
+r1_fq <- c(
+  grep(
+    "Undetermined",
+    list.files(
+      path = here("extdata", "S000443", "data", "fastq"),
+      full.names = TRUE,
+      pattern = glob2rx("*R1*.fastq.gz")),
+    value = TRUE,
+    invert = TRUE),
+  grep(
+    "Undetermined",
+    list.files(
+      path = here("extdata", "S000448", "data", "fastq"),
+      full.names = TRUE,
+      pattern = glob2rx("*R1*.fastq.gz")),
+    value = TRUE,
+    invert = TRUE))
 r2_fq <- gsub("R1", "R2", r1_fq)
 stopifnot(all(file.exists(r2_fq)))
 tx_fq <- file.path(extdir, paste0(rpis, ".R2.fastq.gz"))
@@ -63,22 +72,25 @@ barcode_fq <- gsub("R2", "R1", tx_fq)
 
 bplapply(rpis, function(rpi) {
   message(rpi)
+  # NOTE: S000443 has RPI in file name whereas G000448 does not.
   cmd <- paste0(
     "cat ",
     grep(rpi, r1_fq, value = TRUE),
+    " ",
+    grep(rpi, r1_fq, value = TRUE, invert = TRUE),
     " > ",
     barcode_fq[[rpi]],
     "\n",
     "cat ",
     grep(rpi, r2_fq, value = TRUE),
+    " ",
+    grep(rpi, r2_fq, value = TRUE, invert = TRUE),
     " > ",
     tx_fq[[rpi]])
   system(cmd)
 })
 
 # Genome index
-# TODO: Check with Sam if ERCCs were used.
-# TODO: Check with Danu about choice of reference genome.
 genome_index <- here(
   "extdata",
   "PlasmoDB-51_Pfalciparum3D7",
@@ -141,9 +153,7 @@ align(
   index = genome_index,
   readfile1 = combined_fq,
   output_file = subread_bam,
-  # TODO: Increase nthreads when processing full dataset.
-  nthreads = 1)
-
+  nthreads = 8)
 
 # Assigning reads to annotated exons -------------------------------------------
 
@@ -193,7 +203,6 @@ bplapply(seq_along(subread_bam), function(i) {
     fix_chr = fix_chr)
 })
 
-
 # De-multiplexing data ---------------------------------------------------------
 
 max_mis <- 1
@@ -210,7 +219,6 @@ bplapply(seq_along(exon_bam), function(i) {
     mito = mito,
     has_UMI = has_UMI)
 })
-
 
 # Gene counting deduped data ---------------------------------------------------
 
@@ -281,8 +289,6 @@ saveRDS(
   sce,
   file.path(outdir, "G000396_Danu.UMI_deduped.scPipe.SCE.rds"),
   compress = "xz")
-
-# Create QC report of data------------------------------------------------------
 
 # Create QC report of deduped data----------------------------------------------
 
