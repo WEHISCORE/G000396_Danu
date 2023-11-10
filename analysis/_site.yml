@@ -1,0 +1,23 @@
+name: "G000396_Danu"
+output_dir: "../docs"
+navbar:
+  title: "G000191"
+  left:
+    - text: "Introduction"
+      href: index.html
+    - text: "Preprocessing"
+      href: G000396_Danu.preprocess.html
+    - text: "Differential expression"
+      href: G000396_Danu.differential_expression.html
+    - text: "Supplementary files"
+      menu:
+        - text: "scPipe reports"
+          href: ../output/scPipe/
+  right:
+    - icon: fa-github
+      href: https://github.com/WEHISCORE/G000396_Danu
+output:
+  distill::distill_article:
+    toc: true
+    toc_depth: 3
+    code_folding: true
