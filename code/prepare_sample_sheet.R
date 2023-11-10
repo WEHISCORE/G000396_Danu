@@ -1,6 +1,6 @@
-# Prepare sample sheet (S000443) for use with scPipe.R
+# Prepare sample sheet (S000443) for use with scPipe.R.
 # Peter Hickey
-# 2023-10-31
+# 2023-11-10
 
 # Setup ------------------------------------------------------------------------
 
@@ -83,6 +83,21 @@ sample_sheet <- mutate(
   sequencing_run = "S000443_S000448") |>
   arrange(plate_number, well_position) |>
   select(plate_number, everything())
+
+# Re-naming of samples ---------------------------------------------------------
+
+# NOTE: I found some strange naming of samples, in particular duplicate sample
+#       IDs and non-consecutive numbering of the biological replicates within
+#       each combination of day and cell line. I discussed this with Danu in an
+#       email on 2023-11-10. Ultimately, the resolution was to re-label the
+#       replicates within each combination of day and cell line as rep 1-5 in
+#       order of their appearance in the original 96-well plates.
+
+# TODO: UP TO HERE. Resolve the mess that is the sample sheet. See
+#       preprocess.Rmd for ways to plit `sample` up into its components. Will
+#       need to combine these components with `day` and `well_position` to make
+#       a new `biological_rep` column with values 1-5 by appearance in the
+#       original 96-well plates.
 
 # Construct final sample sheet -------------------------------------------------
 
