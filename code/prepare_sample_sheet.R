@@ -1,6 +1,6 @@
 # Prepare sample sheet (S000443) for use with scPipe.R.
 # Peter Hickey
-# 2023-11-10
+# 2023-11-13
 
 # Setup ------------------------------------------------------------------------
 
@@ -86,18 +86,153 @@ sample_sheet <- mutate(
 
 # Re-naming of samples ---------------------------------------------------------
 
-# NOTE: I found some strange naming of samples, in particular duplicate sample
-#       IDs and non-consecutive numbering of the biological replicates within
-#       each combination of day and cell line. I discussed this with Danu in an
-#       email on 2023-11-10. Ultimately, the resolution was to re-label the
-#       replicates within each combination of day and cell line as rep 1-5 in
-#       order of their appearance in the original 96-well plates.
+# NOTE: The sample IDs in the original 96-well plate sample sheets are an
+#       absolute mess. There are duplicate sample IDs and non-consecutive
+#       numbering of biological replicates within each experimental condition.
+#       I discussed this with Danu in an email on 2023-11-10. Ultimately, the
+#       resolution was to manually identify problematic samples and manually
+#       re-label them. Sigh.
 
-# TODO: UP TO HERE. Resolve the mess that is the sample sheet. See
-#       preprocess.Rmd for ways to plit `sample` up into its components. Will
-#       need to combine these components with `day` and `well_position` to make
-#       a new `biological_rep` column with values 1-5 by appearance in the
-#       original 96-well plates.
+# NOTE: This data frame contains the samples that need modification/correction.
+# NOTE: This data frame contains the samples that need modification/correction.
+to_modify_df <- data.frame(
+  # This is the well position in the 384-well CEL-Seq2 plate.
+  well_position = c(
+    "D13", "D15", "D17", "D19", "D21",
+    "E13", "E15", "E17", "E19", "E21",
+    "F1", "F3", "F5", "F7", "F9",
+    "G1", "G3", "G5", "G7", "G9",
+    "F13", "F15", "F17", "F19", "F21",
+    "G13", "G15", "G17", "G19", "G21",
+    "L13", "L15", "L17", "L19", "L21",
+    "M13", "M15", "M17", "M19", "M21",
+    "N1", "N3", "N5", "N7", "N9",
+    "O1", "O3", "O5", "O7", "O9",
+    "N13", "N15", "N17", "N19", "N21",
+    "O13", "O15", "O17", "O19", "O21",
+    "D14", "D16", "D18", "D20", "D22",
+    "E14", "E16", "E18", "E20", "E22",
+    "F2", "F4", "F6", "F8", "F10",
+    "G2", "G4", "G6", "G8", "G10",
+    "F14", "F16", "F18", "F20", "F22",
+    "G14", "G16", "G18", "G20", "G22",
+    "L14", "L16", "L18", "L20", "L22",
+    "M14", "M16", "M18", "M20", "M22",
+    "N2", "N4", "N6", "N8", "N10",
+    "O2", "O4", "O6", "O8", "O10",
+    "N14", "N16", "N18", "N20", "N22",
+    "O14", "O16", "O18", "O20", "O22"),
+  # This is the old sample ID used in the original 96-well plates.
+  sample = c(
+    rep(
+      c("GID7KO_BioRep 2", "GID7KO_BioRep 3", "GID7KO_BioRep 4", "GID7KO_BioRep 5", "GID7KO_BioRep 6"),
+      2),
+    rep(
+      c("GID8KO_BioRep 2", "GID8KO_BioRep 3", "GID8KO_BioRep 4", "GID8KO_BioRep 5", "GID8KO_BioRep 6"),
+      2),
+    rep(
+      c("GID9KO_BioRep 3", "GID9KO_BioRep 4", "GID9KO_BioRep 5", "GID9KO_BioRep 6", "GID9KO_BioRep 7"),
+      2),
+    rep(
+      c("GID7KO_BioRep 2", "GID7KO_BioRep 3", "GID7KO_BioRep 4", "GID7KO_BioRep 5", "GID7KO_BioRep 6"),
+      2),
+    rep(
+      c("GID8KO_BioRep 2", "GID8KO_BioRep 3", "GID8KO_BioRep 4", "GID8KO_BioRep 5", "GID8KO_BioRep 6"),
+      2),
+    rep(
+      c("GID9KO_BioRep 3", "GID9KO_BioRep 4", "GID9KO_BioRep 5", "GID9KO_BioRep 6", "GID9KO_BioRep 7"),
+      2),
+    rep(
+      c("GID7KO_BioRep 2", "GID7KO_BioRep 9", "GID7KO_BioRep 3", "GID7KO_BioRep 5", "GID7KO_BioRep 6"),
+      2),
+    rep(
+      c("GID8KO_BioRep 2", "GID8KO_BioRep 9", "GID8KO_BioRep 3", "GID8KO_BioRep 5", "GID8KO_BioRep 6"),
+      2),
+    rep(
+      c("GID9KO_BioRep 9", "GID9KO_BioRep 4", "GID9KO_BioRep 3", "GID9KO_BioRep 6", "GID9KO_BioRep 7"),
+      2),
+    rep(
+      c("GID7KO_BioRep 2", "GID7KO_BioRep 12", "GID7KO_BioRep 3", "GID7KO_BioRep 5", "GID7KO_BioRep 12"),
+      2),
+    rep(
+      c("GID8KO_BioRep 2", "GID8KO_BioRep 12", "GID8KO_BioRep 3", "GID8KO_BioRep 5", "GID8KO_BioRep 12"),
+      2),
+    rep(
+      c("GID9KO_BioRep 12", "GID9KO_BioRep 4", "GID9KO_BioRep 3", "GID9KO_BioRep 12", "GID9KO_BioRep 7"),
+      2)),
+  # This is the corrected sample ID for the original 96-well plate layout.
+  corrected_sample = c(
+    rep(
+      c("GID7KO_BioRep 1", "GID7KO_BioRep 2", "GID7KO_BioRep 3", "GID7KO_BioRep 4", "GID7KO_BioRep 5"),
+      2),
+    rep(
+      c("GID8KO_BioRep 1", "GID8KO_BioRep 2", "GID8KO_BioRep 3", "GID8KO_BioRep 4", "GID8KO_BioRep 5"),
+      2),
+    rep(
+      c("GID9KO_BioRep 1", "GID9KO_BioRep 2", "GID9KO_BioRep 3", "GID9KO_BioRep 4", "GID9KO_BioRep 5"),
+      2),
+    rep(
+      c("GID7KO_BioRep 1", "GID7KO_BioRep 2", "GID7KO_BioRep 3", "GID7KO_BioRep 4", "GID7KO_BioRep 5"),
+      2),
+    rep(
+      c("GID8KO_BioRep 1", "GID8KO_BioRep 2", "GID8KO_BioRep 3", "GID8KO_BioRep 4", "GID8KO_BioRep 5"),
+      2),
+    rep(
+      c("GID9KO_BioRep 1", "GID9KO_BioRep 2", "GID9KO_BioRep 3", "GID9KO_BioRep 4", "GID9KO_BioRep 5"),
+      2),
+    rep(
+      c("GID7KO_BioRep 1", "GID7KO_BioRep 2", "GID7KO_BioRep 3", "GID7KO_BioRep 4", "GID7KO_BioRep 5"),
+      2),
+    rep(
+      c("GID8KO_BioRep 1", "GID8KO_BioRep 2", "GID8KO_BioRep 3", "GID8KO_BioRep 4", "GID8KO_BioRep 5"),
+      2),
+    rep(
+      c("GID9KO_BioRep 1", "GID9KO_BioRep 2", "GID9KO_BioRep 3", "GID9KO_BioRep 4", "GID9KO_BioRep 5"),
+      2),
+    rep(
+      c("GID7KO_BioRep 1", "GID7KO_BioRep 2", "GID7KO_BioRep 3", "GID7KO_BioRep 4", "GID7KO_BioRep 5"),
+      2),
+    rep(
+      c("GID8KO_BioRep 1", "GID8KO_BioRep 2", "GID8KO_BioRep 3", "GID8KO_BioRep 4", "GID8KO_BioRep 5"),
+      2),
+    rep(
+      c("GID9KO_BioRep 1", "GID9KO_BioRep 2", "GID9KO_BioRep 3", "GID9KO_BioRep 4", "GID9KO_BioRep 5"),
+      2)))
+
+# Rename bad samples and recombine with good samples.
+ok <- !sample_sheet$well_position %in% to_modify_df$well_position
+sample_sheet <- bind_rows(
+  left_join(sample_sheet[!ok, ], to_modify_df) |>
+    mutate(
+      sample = corrected_sample,
+      corrected_sample = NULL),
+  mutate(sample_sheet[ok, ])) |>
+  mutate(
+    well_position =
+      factor(well_position, levels(sample_sheet$well_position))) |>
+  arrange(well_position)
+
+# Split sample ID into its components.
+sample_sheet$cell_line <- sapply(strsplit(sample_sheet$sample, "_"), "[[", 1)
+sample_sheet$timepoint <- sub(" ", "_", sample_sheet$day)
+sample_sheet$day <- NULL
+sample_sheet$biological_replicate <- sub(
+  ".* ",
+  "",
+  as.character(sample_sheet$sample))
+sample_sheet$sample <- NULL
+
+sample_sheet <- select(
+  sample_sheet,
+  plate_number,
+  well_position,
+  sample_type,
+  original_plate,
+  cell_line,
+  timepoint,
+  biological_replicate,
+  technical_replicate,
+  everything())
 
 # Construct final sample sheet -------------------------------------------------
 
