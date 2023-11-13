@@ -2975,6 +2975,19 @@
       ],
       "Hash": "1412c4b6dfd8de528e1101e493e66a02"
     },
+    "sessioninfo": {
+      "Package": "sessioninfo",
+      "Version": "1.2.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "cli",
+        "tools",
+        "utils"
+      ],
+      "Hash": "3f9796a8d0a0e8c6eb49a4b029359d1f"
+    },
     "sitmo": {
       "Package": "sitmo",
       "Version": "2.0.2",
