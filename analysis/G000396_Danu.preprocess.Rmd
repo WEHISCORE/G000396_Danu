@@ -383,6 +383,37 @@ There is some notable sample-specific variation in the number of reads generated
 **Henceforth, we only use the exonic reads.**
 Although the intronic reads are potentially useful, to do so would require substantial changes to the data analysis workflow and additional analysis.
 
+# Analysis of empty wells
+
+## Background
+
+**TODO** Comment on the data from the empty wells
+
+## Analysis
+
+```{r}
+reads_ap <- DropletUtils::ambientProfileEmpty(
+  assay(sce, "read_counts"),
+  known.empty = which(sce$sample_type == "empty"))
+head(sort(reads_ap, decreasing = TRUE))
+quantile(reads_ap, 0:10 / 10)
+```
+
+```{r}
+umis_ap <- DropletUtils::ambientProfileEmpty(
+  assay(sce, "UMI_counts"),
+  known.empty = which(sce$sample_type == "empty"))
+head(sort(umis_ap, decreasing = TRUE))
+quantile(umis_ap, 0:10 / 10)
+```
+
+## Summary
+
+```{r}
+sce <- sce[, sce$sample_type != "empty"]
+colData(sce) <- droplevels(colData(sce))
+```
+
 # Have we sequenced enough?
 
 ## Motivation
@@ -415,7 +446,6 @@ Figure \@ref(fig:read-library-size) plots the distribution of the number of read
 #| fig.cap = "Distribution of the number of reads mapped to exons in each 
 #|    sample."
 
-# TODO: Stratify by sample_type (if still including empties)
 plot(
   density(reads_ls),
   xlab = expression(log[10](n[reads])),
@@ -701,8 +731,6 @@ cor_i <- unlist(
 Rather than looking at all samples and all genes at once, we can also examine the relationship between UMI counts and read counts within a single sample across genes (Figure \@ref(fig:within-sample-cors)) and within a single gene across samples (Figure \@ref(fig:within-gene-cors)).
 These figures show that the UMI counts and read counts are highly correlated across both samples (median = `r number(median(cor_j, na.rm = TRUE), accuracy = 0.001)`, median absolute deviation = `r number(mad(cor_j, na.rm = TRUE), accuracy = 0.001)`) and genes (median = `r number(median(cor_i, na.rm = TRUE), accuracy = 0.001)`, median absolute deviation = `r number(mad(cor_i, na.rm = TRUE), accuracy = 0.001)`).
 
-**TODO** Within-sample and within-gene might have their names swapped.
-
 ::::: {.panelset}
 
 ::: {.panel}
@@ -722,8 +750,7 @@ These figures show that the UMI counts and read counts are highly correlated acr
 #| fig.asp = 1
 
 par(mfrow = c(3, 3), cex = 0.5)
-# TODO: revise jj if dropping empties
-jj <- names(sort(cor_j)[c(1:3, 187:188, 374:376)])
+jj <- names(sort(cor_j)[c(1:3, 119:120, 238:240)])
 for (j in jj) {
   g <- rownames(sce)
   plot(
@@ -833,6 +860,10 @@ sce <- addPerCellQC(
 
 ## Visualizing the QC metrics
 
+### Individual technical replicates
+
+**TODO** Re-write
+
 Figures \@ref(fig:qcplot-by-sample-gex-sum) - \@ref(fig:qcplot-by-sample-gex-ribo) compare the QC metrics of the mini-bulk samples.
 We observe that `Sample 18` (`LCE658`) and `Sample 25`, `Sample 26`, `Sample 27`,  `Sample 28`, and one of the replicates of `Sample 30` (`LCE659`), all `CD3+CD1aTet+CD4+` samples, have notably fewer reads than other samples, fewer genes detected, and a high percentage of reads mapping to mitochondrial genes.
 These samples are all of low quality and we may need to remove them in downstream analyses.
@@ -843,7 +874,6 @@ These figures show that the majority of mini-bulk samples are good-quality with:
 - The median number of genes detected is around `r number(median(sce$detected), accuracy = 100, big.mark = ",")`.
 - The median percentage of reads that are mapped to mitochondrial RNA is around  `r percent(median(sce$subsets_Mito_percent), scale = 1)`.
 - The median percentage of reads that are mapped to ribosomal protein genes is around  `r percent(median(sce$subsets_Ribo_percent), scale = 1)`.
-- The median percentage of reads that are mapped to ERCC spike-ins is around  `r percent(median(sce$altexps_ERCC_percent), scale = 1)`.
 
 ::::: {.panelset}
 
@@ -865,9 +895,7 @@ p_sum <- plotColData(
   point_alpha = 1,
   other_fields = c("cell_line", "timepoint"),
   theme_size = 8) +
-  geom_hline(
-    yintercept = median(sce$sum[sce$sample_type != "empty"]), 
-    lty = 2) +
+  geom_hline(yintercept = median(sce$sum), lty = 2) +
   guides(colour = "none") +
   facet_grid(timepoint ~ cell_line, scales = "free_x") +
   scale_y_continuous(labels = comma) +
@@ -920,9 +948,7 @@ p_detected <- plotColData(
   point_alpha = 1,
   other_fields = c("cell_line", "timepoint"),
   theme_size = 8) +
-  geom_hline(
-    yintercept = median(sce$detected[sce$sample_type != "empty"]), 
-    lty = 2) +
+  geom_hline(yintercept = median(sce$detected), lty = 2) +
   guides(colour = "none") +
   facet_grid(timepoint ~ cell_line, scales = "free_x") +
   scale_y_continuous(labels = comma) +
@@ -974,9 +1000,7 @@ p_mito <- plotColData(
   point_alpha = 1,
   other_fields = c("cell_line", "timepoint"),
   theme_size = 8) +
-  geom_hline(
-    yintercept = median(sce$subsets_Mito_percent[sce$sample_type != "empty"]), 
-    lty = 2) +
+  geom_hline(yintercept = median(sce$subsets_Mito_percent), lty = 2) +
   guides(colour = "none") +
   facet_grid(timepoint ~ cell_line, scales = "free_x") +
   scale_y_continuous(labels = comma) +
@@ -1006,9 +1030,7 @@ p_ribo <- plotColData(
   point_alpha = 1,
   other_fields = c("cell_line", "timepoint"),
   theme_size = 8) +
-  geom_hline(
-    yintercept = median(sce$subsets_Ribo_percent[sce$sample_type != "empty"]), 
-    lty = 2) +
+  geom_hline(yintercept = median(sce$subsets_Ribo_percent), lty = 2) +
   guides(colour = "none") +
   facet_grid(timepoint ~ cell_line, scales = "free_x") +
   scale_y_continuous(labels = comma) +
@@ -1022,9 +1044,221 @@ p_ribo + ggtitle("GEX: Percentage ribosomal expression")
 
 :::::
 
+### Aggregated technical replicates
+
+**TODO** Explain aggregation
+
+```{r}
+#| results = "hide"
+
+sce_aggregated <- aggregateAcrossCells(
+  sce, 
+  sce$sample, 
+  use.assay.type = "read_counts")
+sce_aggregated$sum <- 
+  sce_aggregated$detected <- 
+  sce_aggregated$subsets_Mito_percent <-
+  sce_aggregated$subsets_Ribo_percent <- NULL
+
+is_mito <- rownames(sce_aggregated) %in% mito_set
+summary(is_mito)
+is_ribo <- rownames(sce_aggregated) %in% ribo_set
+summary(is_ribo)
+sce_aggregated <- addPerCellQC(
+  sce_aggregated, 
+  subsets = list(Mito = which(is_mito), Ribo = which(is_ribo)),
+  assay.type = "read_counts")
+```
+
+**TODO** Re-write
+
+Figures \@ref(fig:qcplot-by-sample-gex-aggregated-sum) - \@ref(fig:qcplot-by-sample-gex-aggregated-ribo) compare the QC metrics of the mini-bulk samples.
+We observe that `Sample 18` (`LCE658`) and `Sample 25`, `Sample 26`, `Sample 27`,  `Sample 28`, and one of the replicates of `Sample 30` (`LCE659`), all `CD3+CD1aTet+CD4+` samples, have notably fewer reads than other samples, fewer genes detected, and a high percentage of reads mapping to mitochondrial genes.
+These samples are all of low quality and we may need to remove them in downstream analyses.
+
+These figures show that the majority of mini-bulk samples are good-quality with:
+
+- The median library size is around `r number(median(sce_aggregated$sum), accuracy = 1000, big.mark = ",")`.
+- The median number of genes detected is around `r number(median(sce_aggregated$detected), accuracy = 100, big.mark = ",")`.
+- The median percentage of reads that are mapped to mitochondrial RNA is around  `r percent(median(sce$subsets_Mito_percent), scale = 1)`.
+- The median percentage of reads that are mapped to ribosomal protein genes is around  `r percent(median(sce$subsets_Ribo_percent), scale = 1)`.
+
+**TODO** Update captions
+
+::::: {.panelset}
+
+::: {.panel}
+
+#### Sum
+
+```{r}
+#| qcplot-by-sample-gex-aggregated-sum,
+#| fig.cap = "Distribution of a QC metric (given in plot title) for each sample 
+#|   in the dataset. Each point represents a cell and is coloured according to 
+#|   the legend."
+
+p_sum <- plotColData(
+  sce_aggregated, 
+  y = "sum",
+  x = "cell_line",
+  colour_by = "cell_line",
+  point_alpha = 1,
+  other_fields =  "timepoint",
+  theme_size = 8) +
+  geom_hline(yintercept = median(sce$sum), lty = 2) +
+  guides(colour = "none") +
+  facet_grid(timepoint ~ .) +
+  scale_y_continuous(labels = comma) +
+  panel_border()
+
+p_sum + ggtitle("GEX: Library size")
+```
+
+:::
+
+::: {.panel}
+
+
+#### Sum (log scale)
+
+```{r}
+#| qcplot-by-sample-gex-aggregated-log-sum,
+#| fig.cap = "Distribution of a QC metric (given in plot title) for each sample 
+#|   in the dataset. Each point represents a cell and is coloured according to 
+#|   the legend."
+
+p_sum_log <- p_sum + 
+  scale_y_log10(limits = c(1, NA), labels = comma) +
+  annotation_logticks(
+    sides = "l",
+    short = unit(0.03, "cm"),
+    mid = unit(0.06, "cm"),
+    long = unit(0.09, "cm"))
+
+p_sum_log + ggtitle("GEX: Library size (log scale)")
+```
+
+:::
+
+::: {.panel}
+
+#### Detected
+
+```{r}
+#| qcplot-by-sample-gex-aggregated-detected,
+#| fig.cap = "Distribution of a QC metric (given in plot title) for each sample 
+#|   in the dataset. Each point represents a cell and is coloured according to 
+#|   the legend."
+
+p_detected <- plotColData(
+  sce_aggregated, 
+  y = "detected",
+  x = "cell_line",
+  colour_by = "cell_line",
+  point_alpha = 1,
+  other_fields =  "timepoint",
+  theme_size = 8) +
+  geom_hline(yintercept = median(sce$detected), lty = 2) +
+  guides(colour = "none") +
+  facet_grid(timepoint ~ .) +
+  scale_y_continuous(labels = comma) +
+  panel_border()
+
+p_detected + ggtitle("GEX: Number of genes detected")
+```
+
+:::
+
+::: {.panel}
+
+#### Detected (log scale)
+
+```{r}
+#| qcplot-by-sample-gex-aggregated-log-detected,
+#| fig.cap = "Distribution of a QC metric (given in plot title) for each sample 
+#|   in the dataset. Each point represents a cell and is coloured according to 
+#|   the legend."
+
+p_detected_log <- p_detected + 
+  scale_y_log10(limits = c(1, NA), labels = comma) +
+  annotation_logticks(
+    sides = "l",
+    short = unit(0.03, "cm"),
+    mid = unit(0.06, "cm"),
+    long = unit(0.09, "cm"))
+
+p_detected_log + ggtitle("GEX: Number of genes detected (log scale)")
+```
+
+:::
+
+::: {.panel}
+
+#### Mitochondrial %
+
+```{r}
+#| qcplot-by-sample-gex-aggregated-mito,
+#| fig.cap = "Distribution of a QC metric (given in plot title) for each sample 
+#|   in the dataset. Each point represents a cell and is coloured according to 
+#|   the legend."
+
+p_mito <- plotColData(
+  sce_aggregated, 
+  y = "subsets_Mito_percent",
+  x = "cell_line",
+  colour_by = "cell_line",
+  point_alpha = 1,
+  other_fields =  "timepoint",
+  theme_size = 8) +
+  geom_hline(yintercept = median(sce$subsets_Mito_percent), lty = 2) +
+  guides(colour = "none") +
+  facet_grid(timepoint ~ .) +
+  scale_y_continuous(labels = function(x) percent(x, scale = 1)) +
+  panel_border()
+
+p_mito + ggtitle("GEX: Percentage mitochondrial expression")
+```
+
+:::
+
+::: {.panel}
+
+#### Ribosomal %
+
+```{r}
+#| qcplot-by-sample-gex-aggregated-ribo,
+#| fig.cap = "Distribution of a QC metric (given in plot title) for each sample 
+#|   in the dataset. Each point represents a cell and is coloured according to 
+#|   the legend."
+
+p_ribo <- plotColData(
+  sce_aggregated, 
+  y = "subsets_Ribo_percent",
+  x = "cell_line",
+  colour_by = "cell_line",
+  point_alpha = 1,
+  other_fields =  "timepoint",
+  theme_size = 8) +
+  geom_hline(yintercept = median(sce$subsets_Ribo_percent), lty = 2) +
+  guides(colour = "none") +
+  facet_grid(timepoint ~ .) +
+  scale_y_continuous(labels = function(x) percent(x, scale = 1)) +
+  panel_border()
+
+p_ribo + ggtitle("GEX: Percentage ribosomal expression")
+```
+
+:::
+
+:::::
+
+### Summary
+
 **TODO** Very high ribo%; why?
 
 ## Identifying outliers by each metric
+
+**TODO** At the technical replicate or biological replicate level?
 
 Outliers are defined based on the median absolute deviation (MADs) from the median value of each metric across all cells. 
 We remove small and large outliers for the library size and the number of expressed features, and large outliers for the spike-in proportions and mitochondrial gene expression proportions.
@@ -1153,7 +1387,11 @@ plotHighestExprs(
 
 # MDS plot
 
+**TODO** At the technical replicate or biological replicate level?
+
 We conclude with some MDS visualisations of the data.
+
+## Invividual technical replicates
 
 ```{r}
 assay(sce, "logCPM_reads") <- edgeR::cpm(assay(sce, "read_counts"), log = TRUE)
@@ -1295,7 +1533,6 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
 
 ::: {.panel}
 
-
 ### Library size
 
 ```{r}
@@ -1315,9 +1552,152 @@ scater::plotMDS(
 
 :::::
 
+## Aggregated technical replicates
+
+```{r}
+assay(sce_aggregated, "logCPM_reads") <- edgeR::cpm(
+  assay(sce_aggregated, "read_counts"), 
+  log = TRUE)
+dec <- scran::modelGeneVar(sce_aggregated, assay.type = "logCPM_reads")
+hvg <- scran::getTopHVGs(dec, n = 1000)
+sce_aggregated <- runMDS(
+  sce_aggregated, 
+  subset_row = hvg, 
+  exprs_values = "logCPM_reads")
+mds_df <- makePerCellDF(sce_aggregated)
+bg <- dplyr::select(
+  mds_df, 
+  -sample_type, -original_plate, -cell_line, -timepoint)
+```
+
+::::: {.panelset}
+
+::: {.panel}
+
+### Original plate
+
+```{r}
+#| aggregated-mds-by-original-plate, 
+#| fig.cap = "MDS plot of the aggregated dataset. Each point represents a 
+#|    sample and is coloured by `original_plate` with each panel highlighting 
+#|    droplets from a particular `original_plate`.",
+#| fig.asp = 2 / 2
+
+ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
+  geom_point(data = bg, colour = scales::alpha("grey", 0.5), size = 1) +
+  geom_point(aes(colour = original_plate), alpha = 1, size = 2) +
+  theme_cowplot(font_size = 10) +
+  xlab("Dimension 1") +
+  ylab("Dimension 2") +
+  facet_wrap(~ original_plate, ncol = 2) +
+  guides(colour = "none") +
+  ggtitle("Faceted by sample_type") +
+  panel_border()
+```
+
+:::
+
+::: {.panel}
+
+### Cell line
+
+```{r}
+#| aggregated-mds-by-cell-line, 
+#| fig.cap = "MDS plot of the aggregated dataset. Each point represents a 
+#|    sample and is coloured by `cell_line` with each panel highlighting 
+#|    droplets from a particular `cell_line`.",
+#| fig.asp = 3 / 3
+
+ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
+  geom_point(data = bg, colour = scales::alpha("grey", 0.5), size = 1) +
+  geom_point(aes(colour = cell_line), alpha = 1, size = 2) +
+  theme_cowplot(font_size = 10) +
+  xlab("Dimension 1") +
+  ylab("Dimension 2") +
+  facet_wrap(~ cell_line, ncol = 3) +
+  guides(colour = "none") +
+  ggtitle("Faceted by cell_line") +
+  panel_border()
+```
+
+:::
+
+::: {.panel}
+
+### Timepoint
+
+```{r}
+#| aggregated-mds-by-timepoint, 
+#| fig.cap = "MDS plot of the aggregated dataset. Each point represents a 
+#|    sample and is coloured by `timepoint` with each panel highlighting 
+#|    droplets from a particular `timepoint`.",
+#| fig.asp = 2 / 3
+
+ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
+  geom_point(data = bg, colour = scales::alpha("grey", 0.5), size = 1) +
+  geom_point(aes(colour = timepoint), alpha = 1, size = 2) +
+  theme_cowplot(font_size = 10) +
+  xlab("Dimension 1") +
+  ylab("Dimension 2") +
+  facet_wrap(~ timepoint, ncol = 3) +
+  guides(colour = "none") +
+  ggtitle("Faceted by timepoint") +
+  panel_border()
+```
+
+:::
+
+::: {.panel}
+
+### Cell line + timepoint
+
+```{r}
+#| aggregated-mds-by-cell-line-timepoint, 
+#| fig.cap = "MDS plot of the aggregated dataset. Each point represents a 
+#|    sample and is coloured by `cell_line` with each panel highlighting 
+#|    droplets from a particular `cell_line`.",
+#| fig.asp = 5 / 7
+
+ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
+  geom_point(data = bg, colour = scales::alpha("grey", 0.5), size = 0.5) +
+  geom_point(aes(colour = cell_line), alpha = 1, size = 1) +
+  theme_cowplot(font_size = 10) +
+  xlab("Dimension 1") +
+  ylab("Dimension 2") +
+  facet_grid(timepoint~ cell_line) +
+  guides(colour = "none") +
+  ggtitle("Faceted by cell_line + timepoint") +
+  panel_border()
+```
+
+:::
+
+::: {.panel}
+
+### Library size
+
+```{r}
+#| aggregated-mds-by-library-size, 
+#| fig.cap = "MDS plot of the aggregated dataset. Each point represents a 
+#|    sample and is coloured by library size (log10(`sum`)).",
+#| fig.asp = 1
+
+scater::plotMDS(
+  sce_aggregated,
+  colour_by = data.frame(
+    `log10(sum)` = log10(sce_aggregated$sum),
+    check.names = FALSE), 
+  point_alpha = 1,
+  point_size = 2)
+```
+
+:::
+
+:::::
+
 ## Summary
 
-Although Figures \@ref(fig:mds-by-sample-type) - \@ref(fig:mds-by-library-size) are only a preliminary summary of the data, there are few patterns worth highlighting:
+Although Figures \@ref(fig:mds-by-sample-type) - \@ref(fig:aggregated-mds-by-library-size) are only a preliminary summary of the data, there are few patterns worth highlighting:
 
 **TODO** Re-write
 
@@ -1361,7 +1741,4 @@ sessioninfo::session_info()
 
 # TODOs
 
-- [ ] When to remove empties?
-- [ ] QC after aggregating tech reps
 - [ ] Interactive MDS plot?
-- [ ] Treat the empties like empty drops, e.g., estimate ambient profile etc.
