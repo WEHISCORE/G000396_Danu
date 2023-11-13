@@ -1,6 +1,6 @@
 # Process S000443 (G000396) with scPipe
 # Peter Hickey
-# 2023-10-31
+# 2023-11-13
 
 # Setup ------------------------------------------------------------------------
 
@@ -146,7 +146,6 @@ bplapply(seq_along(tx_fq), function(i) {
     filter_settings = filter_settings)
 })
 
-
 # Aligning reads to a reference genome -----------------------------------------
 
 align(
@@ -233,7 +232,7 @@ bplapply(seq_along(bc_anno), function(i) {
     gene_fl = gene_fl)
 })
 
-## Create and save deduped SingleCellExperiment ---------------------------------
+# Create and save deduped SingleCellExperiment ---------------------------------
 
 list_of_sce <- lapply(rpis, function(rpi) {
   message(rpi)
@@ -396,8 +395,9 @@ no_dedup_sce <- splitAltExps(
   no_dedup_sce,
   ifelse(grepl("^ERCC", rownames(no_dedup_sce)), "ERCC", "Endogenous"))
 # NOTE: Order genes and samples as in `sce`.
-no_dedup_sce <- no_dedup_sce[rownames(sce),
-                             paste0(colnames(sce), ".not_UMI_deduped")]
+no_dedup_sce <- no_dedup_sce[
+  rownames(sce),
+  paste0(colnames(sce), ".not_UMI_deduped")]
 
 saveRDS(
   no_dedup_sce,
