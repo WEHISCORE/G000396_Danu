@@ -1187,7 +1187,8 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   ylab("Dimension 2") +
   facet_grid(~ sample_type) +
   guides(colour = "none") +
-  ggtitle("Faceted by sample_type")
+  ggtitle("Faceted by sample_type") +
+  panel_border()
 ```
 
 :::
@@ -1211,7 +1212,8 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   ylab("Dimension 2") +
   facet_wrap(~ original_plate, ncol = 2) +
   guides(colour = "none") +
-  ggtitle("Faceted by sample_type")
+  ggtitle("Faceted by sample_type") +
+  panel_border()
 ```
 
 :::
@@ -1235,7 +1237,8 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   ylab("Dimension 2") +
   facet_wrap(~ cell_line, ncol = 3) +
   guides(colour = "none") +
-  ggtitle("Faceted by cell_line")
+  ggtitle("Faceted by cell_line") +
+  panel_border()
 ```
 
 :::
@@ -1259,7 +1262,8 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   ylab("Dimension 2") +
   facet_wrap(~ timepoint, ncol = 3) +
   guides(colour = "none") +
-  ggtitle("Faceted by timepoint")
+  ggtitle("Faceted by timepoint") +
+  panel_border()
 ```
 
 :::
@@ -1273,7 +1277,7 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
 #| fig.cap = "MDS plot of the dataset. Each point represents a sample and 
 #|    is coloured by `cell_line` with each panel highlighting droplets from 
 #|    a particular `cell_line`.",
-#| fig.asp = 3 / 3
+#| fig.asp = 5 / 7
 
 ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   geom_point(data = bg, colour = scales::alpha("grey", 0.5), size = 0.5) +
@@ -1313,7 +1317,7 @@ scater::plotMDS(
 
 ## Summary
 
-Although Figures \@ref(fig:mds-by-plate-number) - \@ref(fig:mds-by-library-size) are only a preliminary summary of the data, there are few patterns worth highlighting:
+Although Figures \@ref(fig:mds-by-sample-type) - \@ref(fig:mds-by-library-size) are only a preliminary summary of the data, there are few patterns worth highlighting:
 
 **TODO** Re-write
 
@@ -1359,5 +1363,5 @@ sessioninfo::session_info()
 
 - [ ] When to remove empties?
 - [ ] QC after aggregating tech reps
-- [ ] Interactive MDS plot
+- [ ] Interactive MDS plot?
 - [ ] Treat the empties like empty drops, e.g., estimate ambient profile etc.
