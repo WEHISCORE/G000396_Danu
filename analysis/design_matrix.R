@@ -149,7 +149,6 @@ contrasts <- makeContrasts(
   GID9KO.Day_12_vs_GID9KO.Day_9 = GID9KO.Day_12 - GID9KO.Day_9,
   WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
 
-  # TODO: Also look at limma User's Guide 'Multi-level Experiments' section.
   # Comparisons at Day 3 (cell lines vs. WT)
   GID1KO.Day_3_vs_WT.Day_3 = GID1KO.Day_3 - WT.Day_3,
   GID2KO.Day_3_vs_WT.Day_3 = GID2KO.Day_3 - WT.Day_3,
@@ -163,7 +162,7 @@ contrasts <- makeContrasts(
   GID7KO.Day_6_vs_WT.Day_6 = GID7KO.Day_6 - WT.Day_6,
   GID8KO.Day_6_vs_WT.Day_6 = GID8KO.Day_6 - WT.Day_6,
   GID9KO.Day_6_vs_WT.Day_6 = GID9KO.Day_6 - WT.Day_6,
-  # ...
+
   # Comparisons at Day 9 (cell lines vs. WT)
   GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
   GID2KO.Day_9_vs_WT.Day_9 = GID2KO.Day_9 - WT.Day_9,
