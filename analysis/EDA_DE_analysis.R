@@ -18,7 +18,8 @@ library(scuttle)
 
 sce <- readRDS(here("data", "SCEs", "G000396_Danu.preprocessed.SCE.rds"))
 # Define counts assay for use with edgeR::SE2DGEList()
-# TODO: Experiment with UMI counts
+# NOTE: Using UMI counts results in a weird voom plot, notably an up-tick on
+#       the right hand side of the voom plot.
 counts(sce) <- assay(sce, "read_counts")
 # NOTE: Only retain relevant colData columns.
 cd <- colData(sce)
