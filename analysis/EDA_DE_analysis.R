@@ -36,15 +36,26 @@ sce$cell_line_rep <- interaction(
   lex.order = TRUE,
   drop = TRUE)
 
-sample_colours <- setNames(
-  palette.colors(nlevels(sce$group), "Alphabet"),
-  levels(sce$group))
 cell_line_colours <- setNames(
-  palette.colors(nlevels(sce$cell_line), "Dark2"),
+  # NOTE: rev() so that WT is first colour (black)
+  rev(palette.colors(nlevels(sce$cell_line), "Okabe-Ito")),
   levels(sce$cell_line))
 timepoint_colour <- setNames(
   palette.colors(nlevels(sce$timepoint), "Set2"),
   levels(sce$timepoint))
+# group_colours <- setNames(
+#   palette.colors(nlevels(sce$group), "Alphabet"),
+#   levels(sce$group))
+group_colours <- setNames(
+  unlist(
+    lapply(
+      cell_line_colours,
+      function(x) {
+        unlist(lapply(x, colorspace::lighten, amount = seq(0, 0.75, 0.25)))
+      }
+    )
+  ),
+  levels(sce$group))
 
 # voom using all replicates-----------------------------------------------------
 
@@ -75,7 +86,7 @@ ggplot(
   scale_x_log10() +
   geom_label_repel(label.size = 0.1, max.overlaps = 100) +
   theme_cowplot() +
-  scale_colour_manual(values = sample_colours)
+  scale_colour_manual(values = group_colours)
 
 glimmaMDS(y)
 
@@ -213,6 +224,9 @@ summary(keep_rep)
 y <- y[, keep_rep]
 y$samples <- droplevels(y$samples)
 
+# Sum technical replicates
+y <- sumTechReps(y, y$samples$sample)
+
 # NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
 #       matrix are non-zero.
 y <- normLibSizes(y, method = "TMM")
@@ -231,7 +245,7 @@ ggplot(
   scale_x_log10() +
   geom_label_repel(label.size = 0.1, max.overlaps = 100) +
   theme_cowplot() +
-  scale_colour_manual(values = sample_colours)
+  scale_colour_manual(values = group_colours)
 
 glimmaMDS(y)
 
@@ -240,7 +254,7 @@ colnames(design) <- sub("group", "", colnames(design))
 
 v <- voom(y, design, plot = TRUE)
 cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Very low (0.01)
+# NOTE: Very low (0.04)
 cor$consensus
 v <- voom(
   y,
@@ -384,7 +398,7 @@ ggplot(
   scale_x_log10() +
   geom_label_repel(label.size = 0.1, max.overlaps = 100) +
   theme_cowplot() +
-  scale_colour_manual(values = sample_colours)
+  scale_colour_manual(values = group_colours)
 
 glimmaMDS(y)
 
@@ -507,7 +521,7 @@ t(summary(decideTests(fit)))
 
 y3 <- y
 v3 <- v
-fit1 <- fit
+fit3 <- fit
 
 # voomWithQualityWeights filtering out low-quality replicates-------------------
 
@@ -522,6 +536,9 @@ keep_rep <- !libsize_drop
 summary(keep_rep)
 y <- y[, keep_rep]
 y$samples <- droplevels(y$samples)
+
+# Sum technical replicates
+y <- sumTechReps(y, y$samples$sample)
 
 # NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
 #       matrix are non-zero.
@@ -541,7 +558,7 @@ ggplot(
   scale_x_log10() +
   geom_label_repel(label.size = 0.1, max.overlaps = 100) +
   theme_cowplot() +
-  scale_colour_manual(values = sample_colours)
+  scale_colour_manual(values = group_colours)
 
 glimmaMDS(y)
 
@@ -550,7 +567,7 @@ colnames(design) <- sub("group", "", colnames(design))
 
 v <- voomWithQualityWeights(y, design, plot = TRUE)
 cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Very low (0.01)
+# NOTE: Very low (0.02)
 cor$consensus
 v <- voomWithQualityWeights(
   y,
@@ -694,7 +711,7 @@ ggplot(
   scale_x_log10() +
   geom_label_repel(label.size = 0.1, max.overlaps = 100) +
   theme_cowplot() +
-  scale_colour_manual(values = sample_colours)
+  scale_colour_manual(values = group_colours)
 
 glimmaMDS(y)
 
@@ -821,6 +838,9 @@ summary(keep_rep)
 y <- y[, keep_rep]
 y$samples <- droplevels(y$samples)
 
+# Sum technical replicates
+y <- sumTechReps(y, y$samples$sample)
+
 # NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
 #       matrix are non-zero.
 y <- normLibSizes(y, method = "TMM")
@@ -839,7 +859,7 @@ ggplot(
   scale_x_log10() +
   geom_label_repel(label.size = 0.1, max.overlaps = 100) +
   theme_cowplot() +
-  scale_colour_manual(values = sample_colours)
+  scale_colour_manual(values = group_colours)
 
 glimmaMDS(y)
 
@@ -852,7 +872,7 @@ fit <- voomLmFit(
   block = y$samples$cell_line_rep,
   plot = TRUE,
   keep.EList = TRUE)
-# NOTE: Very low correlation (0.01)
+# NOTE: Very low correlation (0.03)
 fit$correlation
 
 cm <- makeContrasts(
@@ -981,7 +1001,7 @@ ggplot(
   scale_x_log10() +
   geom_label_repel(label.size = 0.1, max.overlaps = 100) +
   theme_cowplot() +
-  scale_colour_manual(values = sample_colours)
+  scale_colour_manual(values = group_colours)
 
 glimmaMDS(y)
 
@@ -995,7 +1015,7 @@ fit <- voomLmFit(
   sample.weights = TRUE,
   plot = TRUE,
   keep.EList = TRUE)
-# NOTE: Very low correlation (0.03)
+# NOTE: Very low correlation (0.02)
 fit$correlation
 
 cm <- makeContrasts(
@@ -1109,6 +1129,9 @@ summary(keep_rep)
 y <- y[, keep_rep]
 y$samples <- droplevels(y$samples)
 
+# Sum technical replicates
+y <- sumTechReps(y, y$samples$sample)
+
 # NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
 #       matrix are non-zero.
 y <- normLibSizes(y, method = "TMM")
@@ -1127,7 +1150,7 @@ ggplot(
   scale_x_log10() +
   geom_label_repel(label.size = 0.1, max.overlaps = 100) +
   theme_cowplot() +
-  scale_colour_manual(values = sample_colours)
+  scale_colour_manual(values = group_colours)
 
 glimmaMDS(y)
 
@@ -1141,7 +1164,7 @@ fit <- voomLmFit(
   sample.weights = TRUE,
   plot = TRUE,
   keep.EList = TRUE)
-# NOTE: Very low correlation (0.01)
+# NOTE: Very low correlation (0.02)
 fit$correlation
 
 cm <- makeContrasts(
@@ -1243,6 +1266,87 @@ fit8 <- fit
 
 # Outputs to share with Danu ---------------------------------------------------
 
+# Glimma plots
+dir.create(here("tmp", "Glimma"))
+lapply(colnames(fit8), function(j) {
+  message(j)
+  glimmaMA(
+    x = fit8,
+    dge = y8,
+    coef = j,
+    sample.cols = unname(group_colours[y8$samples$group]),
+    html = here(
+      "tmp",
+      "Glimma",
+      paste0(j, ".html")),
+    main = j)
+})
+
+# Heatmaps
+lcpm <- edgeR::cpm(y8, log = TRUE)
+dir.create(here("tmp", "pheatmap"))
+
+# TODO: Might need to use the `filename` argument of pheatmap() because
+#       otherwise the last heatmap text gets overprinted.
+pdf(here("tmp", "pheatmap", "pheatmap.ordered.pdf"), height = 12, width = 12)
+lapply(colnames(fit8), function(j) {
+  message(j)
+
+  pheatmap::pheatmap(
+    lcpm[
+      rownames(topTable(fit8, coef = j, n = 100, p.value = 0.05)),
+      order(y8$samples$group)],
+    scale = "row",
+    color = colorRampPalette(c("blue","white","red"))(100),
+    fontsize_row = 6,
+    fontsize_col = 5,
+    fontsize = 6,
+    # annotation_col = y8$samples[, c("cell_line", "timepoint")],
+    annotation_col = y8$samples[, c("cell_line", "timepoint", "group")],
+    main = gsub("_vs_", " vs. ", j),
+    # annotation_colors = list(
+    #   cell_line = cell_line_colours,
+    #   timepoint = timepoint_colour),
+    annotation_colors = list(
+      cell_line = cell_line_colours,
+      timepoint = timepoint_colour,
+      group = group_colours),
+    angle_col = 45,
+    treeheight_row = 30,
+    treeheight_col = 30,
+    cluster_cols = FALSE)
+})
+dev.off()
+# TODO: Might need to use the `filename` argument of pheatmap() because
+#       otherwise the last heatmap text gets overprinted.
+pdf(here("tmp", "pheatmap", "pheatmap.clustered.pdf"), height = 12, width = 12)
+lapply(colnames(fit8), function(j) {
+  message(j)
+
+  pheatmap::pheatmap(
+    lcpm[rownames(topTable(fit8, coef = j, n = 100, p.value = 0.05)), ],
+    scale = "row",
+    color = colorRampPalette(c("blue","white","red"))(100),
+    fontsize_row = 6,
+    fontsize_col = 5,
+    fontsize = 6,
+    # annotation_col = y8$samples[, c("timepoint", "cell_line")],
+    annotation_col = y8$samples[, c("timepoint", "cell_line", "group")],
+    main = gsub("_vs_", " vs. ", j),
+    # annotation_colors = list(
+    #   cell_line = cell_line_colours,
+    #   timepoint = timepoint_colour),
+    annotation_colors = list(
+      cell_line = cell_line_colours,
+      timepoint = timepoint_colour,
+      group = group_colours),
+    angle_col = 45,
+    treeheight_row = 30,
+    treeheight_col = 30)
+})
+dev.off()
+
+# TODO: Only show samples involved in the contrast in the heatmap?
 
 # TODOs ------------------------------------------------------------------------
 
