@@ -1265,7 +1265,37 @@ t(summary(decideTests(fit)))
 y8 <- y
 fit8 <- fit
 
+# Time course analysis ---------------------------------------------------------
+
+# NOTE: Using the results from the
+#       'voomLmFit with quality weights filtering out low-quality replicate'
+#       analysis.
+
+library(splines)
+X <- ns(as.integer(y8$samples$timepoint), df = 3)
+Group <- relevel(y8$samples$cell_line, "WT")
+design <- model.matrix(~Group * X)
+colnames(design) <- sub("Group", "", colnames(design))
+
+fit <- voomLmFit(
+  y8,
+  design,
+  block = y8$samples$cell_line_rep,
+  sample.weights = TRUE,
+  plot = TRUE)
+fit <- eBayes(fit)
+
+fit9 <- fit
+
+# TODO: Could also extract genes that change over time within a given cell line
+#       (rather than those that change where there change is different to the
+#       change within WT).
+
 # Outputs to share with Danu ---------------------------------------------------
+
+# NOTE: Using the results from the
+#       'voomLmFit with quality weights filtering out low-quality replicate'
+#       analysis.
 
 # Glimma plots
 dir.create(here("tmp", "Glimma"))
@@ -1349,7 +1379,164 @@ dev.off()
 
 # TODO: Only show samples involved in the contrast in the heatmap?
 
+# Timecourse outputs
+tt <- topTable(
+  fit9,
+  coef = c("GID1KO:X1", "GID1KO:X2", "GID1KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt)
+dir.create(here("tmp", "timecourse"))
+pdf(here("tmp", "timecourse", "GID1KO_vs_WT.pdf"), width = 9, height = 3)
+for (g in rownames(tt)) {
+  message(g)
+  p <- ggplot(
+    data = cbind(data.frame(lcpm = lcpm[g, ]), y$samples),
+    mapping = aes(x = timepoint, y = lcpm, group = cell_line_rep)) +
+    # TODO: Is there a way to use the spline fit?
+    geom_smooth(
+      aes(x = timepoint, y = lcpm, group = cell_line, colour = cell_line),
+      se = FALSE,
+      lwd = 2) +
+    scale_colour_manual(values = cell_line_colours) +
+    geom_point(aes(fill = group, colour = cell_line), shape = 21, size = 2) +
+    scale_fill_manual(values = group_colours) +
+    geom_line(aes(colour = cell_line), alpha = 0.5, lty = 2) +
+    facet_grid(~cell_line) +
+    ggtitle(g) +
+    guides(colour = "none", fill = "none") +
+    theme_cowplot() +
+    panel_border() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+  print(p)
+}
+dev.off()
+
+tt <- topTable(
+  fit9,
+  coef = c("GID2KO:X1", "GID2KO:X2", "GID2KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt)
+pdf(here("tmp", "timecourse", "GID2KO_vs_WT.pdf"), width = 9, height = 3)
+for (g in rownames(tt)) {
+  message(g)
+  p <- ggplot(
+    data = cbind(data.frame(lcpm = lcpm[g, ]), y$samples),
+    mapping = aes(x = timepoint, y = lcpm, group = cell_line_rep)) +
+    # TODO: Is there a way to use the spline fit?
+    geom_smooth(
+      aes(x = timepoint, y = lcpm, group = cell_line, colour = cell_line),
+      se = FALSE,
+      lwd = 2) +
+    scale_colour_manual(values = cell_line_colours) +
+    geom_point(aes(fill = group, colour = cell_line), shape = 21, size = 2) +
+    scale_fill_manual(values = group_colours) +
+    geom_line(aes(colour = cell_line), alpha = 0.5, lty = 2) +
+    facet_grid(~cell_line) +
+    ggtitle(g) +
+    guides(colour = "none", fill = "none") +
+    theme_cowplot() +
+    panel_border() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+  print(p)
+}
+dev.off()
+
+tt <- topTable(
+  fit9,
+  coef = c("GID7KO:X1", "GID7KO:X2", "GID7KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt)
+pdf(here("tmp", "timecourse", "GID7KO_vs_WT.pdf"), width = 9, height = 3)
+for (g in rownames(tt)) {
+  message(g)
+  p <- ggplot(
+    data = cbind(data.frame(lcpm = lcpm[g, ]), y$samples),
+    mapping = aes(x = timepoint, y = lcpm, group = cell_line_rep)) +
+    # TODO: Is there a way to use the spline fit?
+    geom_smooth(
+      aes(x = timepoint, y = lcpm, group = cell_line, colour = cell_line),
+      se = FALSE,
+      lwd = 2) +
+    scale_colour_manual(values = cell_line_colours) +
+    geom_point(aes(fill = group, colour = cell_line), shape = 21, size = 2) +
+    scale_fill_manual(values = group_colours) +
+    geom_line(aes(colour = cell_line), alpha = 0.5, lty = 2) +
+    facet_grid(~cell_line) +
+    ggtitle(g) +
+    guides(colour = "none", fill = "none") +
+    theme_cowplot() +
+    panel_border() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+  print(p)
+}
+dev.off()
+
+tt <- topTable(
+  fit9,
+  coef = c("GID8KO:X1", "GID8KO:X2", "GID8KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt)
+pdf(here("tmp", "timecourse", "GID8KO_vs_WT.pdf"), width = 9, height = 3)
+for (g in rownames(tt)) {
+  message(g)
+  p <- ggplot(
+    data = cbind(data.frame(lcpm = lcpm[g, ]), y$samples),
+    mapping = aes(x = timepoint, y = lcpm, group = cell_line_rep)) +
+    # TODO: Is there a way to use the spline fit?
+    geom_smooth(
+      aes(x = timepoint, y = lcpm, group = cell_line, colour = cell_line),
+      se = FALSE,
+      lwd = 2) +
+    scale_colour_manual(values = cell_line_colours) +
+    geom_point(aes(fill = group, colour = cell_line), shape = 21, size = 2) +
+    scale_fill_manual(values = group_colours) +
+    geom_line(aes(colour = cell_line), alpha = 0.5, lty = 2) +
+    facet_grid(~cell_line) +
+    ggtitle(g) +
+    guides(colour = "none", fill = "none") +
+    theme_cowplot() +
+    panel_border() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+  print(p)
+}
+dev.off()
+
+
+tt <- topTable(
+  fit9,
+  coef = c("GID9KO:X1", "GID9KO:X2", "GID9KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt)
+pdf(here("tmp", "timecourse", "GID9KO_vs_WT.pdf"), width = 9, height = 3)
+for (g in rownames(tt)) {
+  message(g)
+  p <- ggplot(
+    data = cbind(data.frame(lcpm = lcpm[g, ]), y$samples),
+    mapping = aes(x = timepoint, y = lcpm, group = cell_line_rep)) +
+    # TODO: Is there a way to use the spline fit?
+    geom_smooth(
+      aes(x = timepoint, y = lcpm, group = cell_line, colour = cell_line),
+      se = FALSE,
+      lwd = 2) +
+    scale_colour_manual(values = cell_line_colours) +
+    geom_point(aes(fill = group, colour = cell_line), shape = 21, size = 2) +
+    scale_fill_manual(values = group_colours) +
+    geom_line(aes(colour = cell_line), alpha = 0.5, lty = 2) +
+    facet_grid(~cell_line) +
+    ggtitle(g) +
+    guides(colour = "none", fill = "none") +
+    theme_cowplot() +
+    panel_border() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+  print(p)
+}
+dev.off()
+
 # TODOs ------------------------------------------------------------------------
 
-# - [ ] TREAT
-# - [ ] Timecourse analysis
+# - [ ] TREAT?

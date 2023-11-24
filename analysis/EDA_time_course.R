@@ -8,7 +8,6 @@ Group <- relevel(y$samples$cell_line, "WT")
 design <- model.matrix(~Group*X)
 colnames(design) <- sub("Group", "", colnames(design))
 
-# TODO: Quality weights?
 fit0 <- voomLmFit(
   y,
   design,
