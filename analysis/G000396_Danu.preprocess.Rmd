@@ -94,6 +94,42 @@ sce$sample <- interaction(
   sce$biological_replicate, 
   drop = TRUE, 
   lex.order = TRUE)
+sce$group <- interaction(
+  sce$cell_line,
+  sce$timepoint,
+  lex.order = TRUE,
+  drop = TRUE)
+sce$cell_line_rep <- interaction(
+  sce$cell_line,
+  sce$biological_replicate,
+  lex.order = TRUE,
+  drop = TRUE)
+
+# Some useful colours
+# NOTE: First 5 colours are based on Set1
+cell_line_colours <- c(
+  "GID1KO" = "#e41a1c",
+  "GID2KO" = "#377eb8",
+  "GID7KO" = "#4daf4a",
+  "GID8KO" = "#984ea3",
+  "GID9KO" = "#ff7f00",
+  "WT" = "black",
+  "N/A" = "grey")
+timepoint_colours <- setNames(
+  palette.colors(nlevels(sce$timepoint), "Set2"),
+  levels(sce$timepoint))
+group_colours <- setNames(
+  c(
+    unlist(
+      lapply(
+        cell_line_colours[1:6],
+        function(x) {
+          unlist(lapply(x, colorspace::lighten, amount = seq(0, 0.75, 0.25)))
+        }
+      )
+    ),
+    "grey"),
+  levels(sce$group))
 ```
 
 ### Introduction
@@ -217,8 +253,8 @@ library(GenomicFeatures)
 
 txdb <- makeTxDbFromGFF(
   here(
-    "extdata", 
-    "PlasmoDB-51_Pfalciparum3D7",
+  "extdata",
+  "PlasmoDB-51_Pfalciparum3D7",
     "PlasmoDB-51_Pfalciparum3D7.gff"))
 
 txdb_columns <- columns(txdb)
@@ -307,7 +343,8 @@ plotColData(
     mid = unit(0.06, "cm"),
     long = unit(0.09, "cm")) +
   guides(colour = "none") +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 ```
 
 :::
@@ -337,7 +374,8 @@ plotColData(
   guides(colour = "none") +
   facet_grid(timepoint ~ cell_line, scales = "free_x") +
   panel_border() +
-  scale_y_continuous(labels = scales::percent, limits = c(0, 1))
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_colour_manual(values = cell_line_colours)
 ```
 
 :::
@@ -367,7 +405,8 @@ plotColData(
   guides(colour = "none") +
   facet_grid(timepoint ~ cell_line, scales = "free_x") +
   panel_border() +
-  scale_y_continuous(labels = scales::percent, limits = c(0, 1))
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_colour_manual(values = cell_line_colours)
 ```
 
 :::
@@ -416,7 +455,8 @@ plotPlatePosition(
       title = "sample_type")) +
   theme_cowplot(font_size = 8) +
   xlab("") +
-  ylab("")
+  ylab("") +
+  scale_colour_manual(values = c(`FALSE` = "#1b9e77", `TRUE` = "#d95f02"))
 ```
 
 ## Summary
@@ -944,7 +984,8 @@ p_sum <- plotColData(
   guides(colour = "none") +
   facet_grid(timepoint ~ cell_line, scales = "free_x") +
   scale_y_continuous(labels = comma) +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 
 p_sum + ggtitle("GEX: Library size")
 ```
@@ -997,7 +1038,8 @@ p_detected <- plotColData(
   guides(colour = "none") +
   facet_grid(timepoint ~ cell_line, scales = "free_x") +
   scale_y_continuous(labels = comma) +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 
 p_detected + ggtitle("GEX: Number of genes detected")
 ```
@@ -1051,7 +1093,8 @@ p_mito <- plotColData(
   scale_y_continuous(
     labels = function(x) percent(x, scale = 1),
     limits = c(0, 100)) +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 
 p_mito + ggtitle("GEX: Percentage mitochondrial expression")
 ```
@@ -1082,7 +1125,8 @@ p_ribo <- plotColData(
   scale_y_continuous(
     labels = function(x) percent(x, scale = 1), 
     limits = c(0, 100)) +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 
 p_ribo + ggtitle("GEX: Percentage ribosomal expression")
 ```
@@ -1155,7 +1199,8 @@ p_sum <- plotColData(
   guides(colour = "none") +
   facet_grid(timepoint ~ .) +
   scale_y_continuous(labels = comma) +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 
 p_sum + ggtitle("GEX: Library size")
 ```
@@ -1208,7 +1253,8 @@ p_detected <- plotColData(
   guides(colour = "none") +
   facet_grid(timepoint ~ .) +
   scale_y_continuous(labels = comma) +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 
 p_detected + ggtitle("GEX: Number of genes detected")
 ```
@@ -1262,7 +1308,8 @@ p_mito <- plotColData(
   scale_y_continuous(
     labels = function(x) percent(x, scale = 1),
     limits = c(0, 100)) +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 
 p_mito + ggtitle("GEX: Percentage mitochondrial expression")
 ```
@@ -1293,7 +1340,8 @@ p_ribo <- plotColData(
   scale_y_continuous(
     labels = function(x) percent(x, scale = 1),
     limits = c(0, 100)) +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 
 p_ribo + ggtitle("GEX: Percentage ribosomal expression")
 ```
@@ -1451,31 +1499,6 @@ bg <- dplyr::select(
 
 ::: {.panel}
 
-### Sample type
-
-```{r}
-#| mds-by-sample-type, 
-#| fig.cap = "MDS plot of the dataset. Each point represents a sample and 
-#|    is coloured by `sample_type` with each panel highlighting droplets from 
-#|    a particular `sample_type`.",
-#| fig.asp = 1 / 2
-
-ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
-  geom_point(data = bg, colour = scales::alpha("grey", 0.5), size = 1) +
-  geom_point(aes(colour = sample_type), alpha = 1, size = 2) +
-  theme_cowplot(font_size = 10) +
-  xlab("Dimension 1") +
-  ylab("Dimension 2") +
-  facet_grid(~ sample_type) +
-  guides(colour = "none") +
-  ggtitle("Faceted by sample_type") +
-  panel_border()
-```
-
-:::
-
-::: {.panel}
-
 ### Original plate
 
 ```{r}
@@ -1519,7 +1542,8 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   facet_wrap(~ cell_line, ncol = 3) +
   guides(colour = "none") +
   ggtitle("Faceted by cell_line") +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 ```
 
 :::
@@ -1544,7 +1568,8 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   facet_wrap(~ timepoint, ncol = 2) +
   guides(colour = "none") +
   ggtitle("Faceted by timepoint") +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = timepoint_colours)
 ```
 
 :::
@@ -1566,10 +1591,11 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   theme_cowplot(font_size = 10) +
   xlab("Dimension 1") +
   ylab("Dimension 2") +
-  facet_grid(timepoint~ cell_line) +
+  facet_grid(timepoint ~ cell_line) +
   guides(colour = "none") +
   ggtitle("Faceted by cell_line + timepoint") +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 ```
 
 :::
@@ -1660,7 +1686,8 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   facet_wrap(~ cell_line, ncol = 3) +
   guides(colour = "none") +
   ggtitle("Faceted by cell_line") +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 ```
 
 :::
@@ -1685,7 +1712,8 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   facet_wrap(~ timepoint, ncol = 2) +
   guides(colour = "none") +
   ggtitle("Faceted by timepoint") +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = timepoint_colours)
 ```
 
 :::
@@ -1707,10 +1735,11 @@ ggplot(aes(x = MDS.1, y = MDS.2), data = mds_df) +
   theme_cowplot(font_size = 10) +
   xlab("Dimension 1") +
   ylab("Dimension 2") +
-  facet_grid(timepoint~ cell_line) +
+  facet_grid(timepoint ~ cell_line) +
   guides(colour = "none") +
   ggtitle("Faceted by cell_line + timepoint") +
-  panel_border()
+  panel_border() +
+  scale_colour_manual(values = cell_line_colours)
 ```
 
 :::
@@ -1740,7 +1769,7 @@ scater::plotMDS(
 
 ## Summary
 
-Although Figures \@ref(fig:mds-by-sample-type) - \@ref(fig:aggregated-mds-by-library-size) are only a preliminary summary of the data, there are few patterns worth highlighting:
+Although Figures \@ref(fig:mds-by-original-plate) - \@ref(fig:aggregated-mds-by-library-size) are only a preliminary summary of the data, there are few patterns worth highlighting:
 
 - Strong association of MDS co-ordinates and `timepoint`
 - No strong association of MDS co-ordinates and `cell_line`, but this may become more apparent after accounting for `timepoint`.

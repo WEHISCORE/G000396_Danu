@@ -25,37 +25,29 @@ counts(sce) <- assay(sce, "read_counts")
 cd <- colData(sce)
 colData(sce) <- cd[
   ,
-  c("cell_line", "timepoint", "biological_replicate", "technical_replicate", "sample")]
-sce$group <- interaction(
-  sce$cell_line,
-  sce$timepoint,
-  lex.order = TRUE,
-  drop = TRUE)
-sce$cell_line_rep <- interaction(
-  sce$cell_line,
-  sce$biological_replicate,
-  lex.order = TRUE,
-  drop = TRUE)
+  c("cell_line", "timepoint", "biological_replicate", "technical_replicate", "sample", "group", "cell_line_rep")]
 
-cell_line_colours <- setNames(
-  # NOTE: rev() so that WT is first colour (black)
-  rev(palette.colors(nlevels(sce$cell_line), "Okabe-Ito")),
-  levels(sce$cell_line))
-timepoint_colour <- setNames(
+# Some useful colours
+# NOTE: First 5 colours are based on Set1
+cell_line_colours <- c(
+  "GID1KO" = "#e41a1c",
+  "GID2KO" = "#377eb8",
+  "GID7KO" = "#4daf4a",
+  "GID8KO" = "#984ea3",
+  "GID9KO" = "#ff7f00",
+  "WT" = "black")
+timepoint_colours <- setNames(
   palette.colors(nlevels(sce$timepoint), "Set2"),
   levels(sce$timepoint))
-# group_colours <- setNames(
-#   palette.colors(nlevels(sce$group), "Alphabet"),
-#   levels(sce$group))
 group_colours <- setNames(
   unlist(
-    lapply(
-      cell_line_colours,
-      function(x) {
-        unlist(lapply(x, colorspace::lighten, amount = seq(0, 0.75, 0.25)))
-      }
-    )
-  ),
+      lapply(
+        cell_line_colours[1:6],
+        function(x) {
+          unlist(lapply(x, colorspace::lighten, amount = seq(0, 0.75, 0.25)))
+        }
+      )
+    ),
   levels(sce$group))
 
 # voom using all replicates-----------------------------------------------------
@@ -1337,10 +1329,10 @@ lapply(colnames(fit8), function(j) {
     main = gsub("_vs_", " vs. ", j),
     # annotation_colors = list(
     #   cell_line = cell_line_colours,
-    #   timepoint = timepoint_colour),
+    #   timepoint = timepoint_colours),
     annotation_colors = list(
       cell_line = cell_line_colours,
-      timepoint = timepoint_colour,
+      timepoint = timepoint_colours,
       group = group_colours),
     angle_col = 45,
     treeheight_row = 30,
@@ -1366,10 +1358,10 @@ lapply(colnames(fit8), function(j) {
     main = gsub("_vs_", " vs. ", j),
     # annotation_colors = list(
     #   cell_line = cell_line_colours,
-    #   timepoint = timepoint_colour),
+    #   timepoint = timepoint_colours),
     annotation_colors = list(
       cell_line = cell_line_colours,
-      timepoint = timepoint_colour,
+      timepoint = timepoint_colours,
       group = group_colours),
     angle_col = 45,
     treeheight_row = 30,
@@ -1504,7 +1496,6 @@ for (g in rownames(tt)) {
   print(p)
 }
 dev.off()
-
 
 tt <- topTable(
   fit9,
