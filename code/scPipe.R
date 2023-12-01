@@ -1,6 +1,6 @@
 # Process S000443 (G000396) with scPipe
 # Peter Hickey
-# 2023-11-13
+# 2023-11-30
 
 # Setup ------------------------------------------------------------------------
 
@@ -9,7 +9,7 @@ library(scPipe)
 library(Rsubread)
 library(BiocParallel)
 
-register(MulticoreParam(workers = 8))
+register(MulticoreParam(workers = 16))
 
 # Load sample sheet ------------------------------------------------------------
 
@@ -93,15 +93,15 @@ bplapply(rpis, function(rpi) {
 # Genome index
 genome_index <- here(
   "extdata",
-  "PlasmoDB-51_Pfalciparum3D7",
-  "PlasmoDB-51_Pfalciparum3D7_with_ERCC")
+  "PlasmoDB-66_Pfalciparum3D7",
+  "PlasmoDB-66_Pfalciparum3D7_with_ERCC")
 
 # Genome annotation(s)
 annofn <- c(
   here(
     "extdata",
-    "PlasmoDB-51_Pfalciparum3D7",
-    "PlasmoDB-51_Pfalciparum3D7.gff"),
+    "PlasmoDB-66_Pfalciparum3D7",
+    "PlasmoDB-66_Pfalciparum3D7.gff"),
   system.file("extdata", "ERCC92_anno.gff3", package = "scPipe"))
 
 # Cell barcodes
@@ -152,35 +152,9 @@ align(
   index = genome_index,
   readfile1 = combined_fq,
   output_file = subread_bam,
-  nthreads = 8)
+  nthreads = 16)
 
 # Assigning reads to annotated exons -------------------------------------------
-
-# NOTE: Have to make data.frame in SAF format of PlasmoDB-51_Pfalciparum3D7.gff
-#       because scPipe::sc_exon_mapping() doesn't know how to parse this file.
-plasmo_gr <- rtracklayer::import(annofn[[1]])
-plasmo_exon_gr <- plasmo_gr[plasmo_gr$type == "exon"]
-# NOTE: My understanding is SAF is 1-based (see
-#       https://www.biostars.org/p/228636/#9470789)
-plasmo_saf <- data.frame(
-  # NOTE: Some exons have multiple `Parent`s. Don't know why or what this
-  #       means, but for now just take the first one.
-  GeneID = sapply(plasmo_exon_gr$Parent, "[[", 1),
-  Chr = seqnames(plasmo_exon_gr),
-  Start = start(plasmo_exon_gr),
-  End = end(plasmo_exon_gr),
-  Strand = strand(plasmo_exon_gr))
-ercc_gr <- rtracklayer::import(annofn[[2]])
-ercc_exon_gr <- ercc_gr[ercc_gr$type == "exon"]
-ercc_saf <- data.frame(
-  # NOTE: Some exons have multiple `Parent`s. Don't know why or what this
-  #       means, but for now just take the first one.
-  GeneID = ercc_exon_gr$Name,
-  Chr = seqnames(ercc_exon_gr),
-  Start = start(ercc_exon_gr),
-  End = end(ercc_exon_gr),
-  Strand = strand(ercc_exon_gr))
-saf <- rbind(plasmo_saf, ercc_saf)
 
 bam_tags <- list(am = "YE", ge = "GE", bc = "BC", mb = "OX")
 bc_len <- read_structure$bl1 + read_structure$bl2
@@ -193,7 +167,7 @@ bplapply(seq_along(subread_bam), function(i) {
   sc_exon_mapping(
     inbam = subread_bam[i],
     outbam = exon_bam[i],
-    annofn = saf,
+    annofn = annofn,
     bam_tags = bam_tags,
     bc_len = bc_len,
     barcode_vector = barcode_vector,
