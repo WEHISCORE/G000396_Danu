@@ -1,6 +1,6 @@
 # DE analysis of mini-bulk data for G000396_Danu
 # Peter Hickey
-# 2023-11-23
+# 2023-12-04
 
 # Setup ------------------------------------------------------------------------
 
@@ -1290,6 +1290,7 @@ fit9 <- fit
 #       analysis.
 
 # Glimma plots
+# TODO: Provide only necessary/useful columns in `anno`.
 dir.create(here("tmp", "Glimma"))
 lapply(colnames(fit8), function(j) {
   message(j)
