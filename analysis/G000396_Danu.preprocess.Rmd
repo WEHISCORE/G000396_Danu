@@ -1503,6 +1503,86 @@ plotHighestExprs(
 
 :::::
 
+## Expression of PfGID components
+
+```{r}
+pfgid_components <- c(
+  PfGID1 = "PF3D7_1014300", 
+  PfGID2 = "PF3D7_0728600", 
+  PfGID7 = "PF3D7_0518600", 
+  PfGID8 = "PF3D7_1336400", 
+  PfGID9 = "PF3D7_1330500")
+```
+
+::::: {.panelset}
+
+::: {.panel}
+
+### Raw read counts
+
+```{r}
+#| pfgid-component-expression, 
+#| fig.asp = 2 / 3, 
+#| fig.cap = "Read counts for components of the PfGID complex. Each cell line 
+#|    has one of these genes knocked out (albeit perhaps incompletely)."
+
+p <- lapply(seq_along(pfgid_components), function(i) {
+  plotExpression(
+    sce, 
+    features = pfgid_components[i], 
+    x = "cell_line",
+    exprs_values = "read_counts",
+    swap_rownames = "GENEID", 
+    ncol = 3,
+    scales = "free_y",
+    colour_by = "cell_line",
+    point_size = 0.5,
+    point_alpha = 1) +
+    scale_colour_manual(values = cell_line_colours) +
+    guides(colour = "none") +
+    ggtitle(names(pfgid_components)[i]) +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+})
+wrap_plots(p, ncol = 3)
+```
+
+:::
+
+::: {.panel}
+
+### Normalized read counts
+
+```{r}
+#| pfgid-component-normalized-expression, 
+#| fig.asp = 2 / 3, 
+#| fig.cap = "Normalized-by-library-size read counts for components of the 
+#|    PfGID complex. Each cell line has one of these genes knocked out (albeit 
+#|    perhaps incompletely)."
+
+p <- lapply(seq_along(pfgid_components), function(i) {
+  plotExpression(
+    logNormCounts(sce, exprs_values = "read_counts"),
+    features = pfgid_components[i], 
+    x = "cell_line",
+    exprs_values = "logcounts",
+    swap_rownames = "GENEID", 
+    ncol = 3,
+    scales = "free_y",
+    colour_by = "cell_line",
+    point_size = 0.5,
+    point_alpha = 1) +
+    scale_colour_manual(values = cell_line_colours) +
+    guides(colour = "none") +
+    ggtitle(names(pfgid_components)[i]) +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+})
+wrap_plots(p, ncol = 3)
+```
+
+:::
+
+:::::
+
 # MDS plot
 
 We conclude with some MDS visualisations of the data.
