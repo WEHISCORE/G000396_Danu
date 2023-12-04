@@ -13,6 +13,22 @@ library(cowplot)
 library(ggrepel)
 library(Glimma)
 library(scuttle)
+library(splines)
+
+# Take a DataFrame with AtomicList columns and return a data.frame where these
+# columns have been flattened by paste-ing together the elements separated by
+# `sep`.
+flattenDF <- function(x, sep = "; ") {
+  as.data.frame(
+    DataFrame(
+      endoapply(x, function(xx) {
+        if (!is(xx, "list")) {
+          return(xx)
+        }
+        unstrsplit(as(xx, "CharacterList"), sep = sep)
+      }),
+      row.names = rownames(x)))
+}
 
 # Load data --------------------------------------------------------------------
 
@@ -50,1065 +66,10 @@ group_colours <- setNames(
     ),
   levels(sce$group))
 
-# voom using all replicates-----------------------------------------------------
+# Multi-level DE analysis ------------------------------------------------------
 
-y <- SE2DGEList(sce)
-
-# Sum technical replicates
-y <- sumTechReps(y, y$samples$sample)
-
-keep <- filterByExpr(y)
-summary(keep)
-y <- y[keep, , keep.lib.sizes = FALSE]
-
-# NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
-#       matrix are non-zero.
-y <- normLibSizes(y, method = "TMM")
-ggplot(
-  y$samples,
-  aes(
-    x = norm.factors,
-    y = lib.size,
-    colour = group,
-    label = ifelse(
-      isOutlier(y$samples$lib.size, log = TRUE, type = "lower"),
-      colnames(y),
-      ""))) +
-  geom_point() +
-  scale_y_log10(labels = scales::comma) +
-  scale_x_log10() +
-  geom_label_repel(label.size = 0.1, max.overlaps = 100) +
-  theme_cowplot() +
-  scale_colour_manual(values = group_colours)
-
-glimmaMDS(y)
-
-design <- model.matrix(~0 + group, y$samples)
-colnames(design) <- sub("group", "", colnames(design))
-
-v <- voom(y, design, plot = TRUE)
-cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Very low (0.03)
-cor$consensus
-v <- voom(
-  y,
-  design,
-  block = v$targets$sample,
-  correlation = cor$consensus,
-  plot = TRUE)
-cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Basically doesn't change.
-cor$consensus
-
-fit <- lmFit(
-  v,
-  design,
-  block = v$targets$cell_line_rep,
-  correlation = cor$consensus)
-cm <- makeContrasts(
-  # Day6 vs. Day3 (within cell line)
-  GID1KO.Day_6_vs_GID1KO.Day_3 = GID1KO.Day_6 - GID1KO.Day_3,
-  GID2KO.Day_6_vs_GID2KO.Day_3 = GID2KO.Day_6 - GID2KO.Day_3,
-  GID7KO.Day_6_vs_GID7KO.Day_3 = GID7KO.Day_6 - GID7KO.Day_3,
-  GID8KO.Day_6_vs_GID8KO.Day_3 = GID8KO.Day_6 - GID8KO.Day_3,
-  GID9KO.Day_6_vs_GID9KO.Day_3 = GID9KO.Day_6 - GID9KO.Day_3,
-  WT.Day_6_vs_WT.Day_3 = WT.Day_6 - WT.Day_3,
-
-  # Day9 vs. Day6 (within cell line)
-  GID1KO.Day_9_vs_GID1KO.Day_6 = GID1KO.Day_9 - GID1KO.Day_6,
-  GID2KO.Day_9_vs_GID2KO.Day_6 = GID2KO.Day_9 - GID2KO.Day_6,
-  GID7KO.Day_9_vs_GID7KO.Day_6 = GID7KO.Day_9 - GID7KO.Day_6,
-  GID8KO.Day_9_vs_GID8KO.Day_6 = GID8KO.Day_9 - GID8KO.Day_6,
-  GID9KO.Day_9_vs_GID9KO.Day_6 = GID9KO.Day_9 - GID9KO.Day_6,
-  WT.Day_9_vs_WT.Day_6 = WT.Day_9 - WT.Day_6,
-
-  # Day12 vs. Day9 (within cell line)
-  GID1KO.Day_12_vs_GID1KO.Day_9 = GID1KO.Day_12 - GID1KO.Day_9,
-  GID2KO.Day_12_vs_GID2KO.Day_9 = GID2KO.Day_12 - GID2KO.Day_9,
-  GID7KO.Day_12_vs_GID7KO.Day_9 = GID7KO.Day_12 - GID7KO.Day_9,
-  GID8KO.Day_12_vs_GID8KO.Day_9 = GID8KO.Day_12 - GID8KO.Day_9,
-  GID9KO.Day_12_vs_GID9KO.Day_9 = GID9KO.Day_12 - GID9KO.Day_9,
-  WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
-
-  # Comparisons at Day 3 (cell lines vs. WT)
-  GID1KO.Day_3_vs_WT.Day_3 = GID1KO.Day_3 - WT.Day_3,
-  GID2KO.Day_3_vs_WT.Day_3 = GID2KO.Day_3 - WT.Day_3,
-  GID7KO.Day_3_vs_WT.Day_3 = GID7KO.Day_3 - WT.Day_3,
-  GID8KO.Day_3_vs_WT.Day_3 = GID8KO.Day_3 - WT.Day_3,
-  GID9KO.Day_3_vs_WT.Day_3 = GID9KO.Day_3 - WT.Day_3,
-
-  # Comparisons at Day 6 (cell lines vs. WT)
-  GID1KO.Day_6_vs_WT.Day_6 = GID1KO.Day_6 - WT.Day_6,
-  GID2KO.Day_6_vs_WT.Day_6 = GID2KO.Day_6 - WT.Day_6,
-  GID7KO.Day_6_vs_WT.Day_6 = GID7KO.Day_6 - WT.Day_6,
-  GID8KO.Day_6_vs_WT.Day_6 = GID8KO.Day_6 - WT.Day_6,
-  GID9KO.Day_6_vs_WT.Day_6 = GID9KO.Day_6 - WT.Day_6,
-
-  # Comparisons at Day 9 (cell lines vs. WT)
-  GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
-  GID2KO.Day_9_vs_WT.Day_9 = GID2KO.Day_9 - WT.Day_9,
-  GID7KO.Day_9_vs_WT.Day_9 = GID7KO.Day_9 - WT.Day_9,
-  GID8KO.Day_9_vs_WT.Day_9 = GID8KO.Day_9 - WT.Day_9,
-  GID9KO.Day_9_vs_WT.Day_9 = GID9KO.Day_9 - WT.Day_9,
-  # Comparisons at Day 12 (cell lines vs. WT)
-  GID1KO.Day_12_vs_WT.Day_12 = GID1KO.Day_12 - WT.Day_12,
-  GID2KO.Day_12_vs_WT.Day_12 = GID2KO.Day_12 - WT.Day_12,
-  GID7KO.Day_12_vs_WT.Day_12 = GID7KO.Day_12 - WT.Day_12,
-  GID8KO.Day_12_vs_WT.Day_12 = GID8KO.Day_12 - WT.Day_12,
-  GID9KO.Day_12_vs_WT.Day_12 = GID9KO.Day_12 - WT.Day_12,
-
-  # Interactions (Day6 vs. Day3; cell lines vs. WT)
-  `(GID1KO.Day_6_vs_GID1KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID1KO.Day_6 - GID1KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID2KO.Day_6_vs_GID2KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID2KO.Day_6 - GID2KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID7KO.Day_6_vs_GID7KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID7KO.Day_6 - GID7KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID8KO.Day_6_vs_GID8KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID8KO.Day_6 - GID8KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID9KO.Day_6_vs_GID9KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID9KO.Day_6 - GID9KO.Day_3) - (WT.Day_6 - WT.Day_3),
-
-  # Interactions (Day9 vs. Day6; cell lines vs. WT)
-  `(GID1KO.Day_9_vs_GID1KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID1KO.Day_9 - GID1KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID2KO.Day_9_vs_GID2KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID2KO.Day_9 - GID2KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID7KO.Day_9_vs_GID7KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID7KO.Day_9 - GID7KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID8KO.Day_9_vs_GID8KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID8KO.Day_9 - GID8KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID9KO.Day_9_vs_GID9KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID9KO.Day_9 - GID9KO.Day_6) - (WT.Day_9 - WT.Day_6),
-
-  # Interactions (Day12 vs. Day9; cell lines vs. WT)
-  `(GID1KO.Day_12_vs_GID1KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID1KO.Day_12 - GID1KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID2KO.Day_12_vs_GID2KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID2KO.Day_12 - GID2KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID7KO.Day_12_vs_GID7KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID7KO.Day_12 - GID7KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID8KO.Day_12_vs_GID8KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID8KO.Day_12 - GID8KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID9KO.Day_12_vs_GID9KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID9KO.Day_12 - GID9KO.Day_9) - (WT.Day_12 - WT.Day_9),
-
-  # TODO: Genes that are DE in an cell line vs. WT at start (Day3) via an F-test?
-  levels = design)
-fit <- contrasts.fit(fit, cm)
-fit <- eBayes(fit)
-t(summary(decideTests(fit)))
-
-y1 <- y
-v1 <- v
-fit1 <- fit
-
-# voom filtering out low-quality replicates ------------------------------------
-
-y <- SE2DGEList(sce)
-
-# Subset to relevant samples
-# NOTE: Not using criteria from preprocessing Rmd because it is stricter than
-#       I want/need for DE analysis. Here, I really just want to remove those
-#       libraries with crap library size.
-libsize_drop <- isOutlier(colSums(y$counts), type = "lower", log = TRUE)
-keep_rep <- !libsize_drop
-summary(keep_rep)
-y <- y[, keep_rep]
-y$samples <- droplevels(y$samples)
-
-# Sum technical replicates
-y <- sumTechReps(y, y$samples$sample)
-
-# NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
-#       matrix are non-zero.
-y <- normLibSizes(y, method = "TMM")
-ggplot(
-  y$samples,
-  aes(
-    x = norm.factors,
-    y = lib.size,
-    colour = group,
-    label = ifelse(
-      isOutlier(y$samples$lib.size, log = TRUE, type = "lower"),
-      colnames(y),
-      ""))) +
-  geom_point() +
-  scale_y_log10(labels = scales::comma) +
-  scale_x_log10() +
-  geom_label_repel(label.size = 0.1, max.overlaps = 100) +
-  theme_cowplot() +
-  scale_colour_manual(values = group_colours)
-
-glimmaMDS(y)
-
-design <- model.matrix(~0 + group, y$samples)
-colnames(design) <- sub("group", "", colnames(design))
-
-v <- voom(y, design, plot = TRUE)
-cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Very low (0.04)
-cor$consensus
-v <- voom(
-  y,
-  design,
-  block = v$targets$sample,
-  correlation = cor$consensus,
-  plot = TRUE)
-cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Basically doesn't change.
-cor$consensus
-
-fit <- lmFit(
-  v,
-  design,
-  block = v$targets$cell_line_rep,
-  correlation = cor$consensus)
-cm <- makeContrasts(
-  # Day6 vs. Day3 (within cell line)
-  GID1KO.Day_6_vs_GID1KO.Day_3 = GID1KO.Day_6 - GID1KO.Day_3,
-  GID2KO.Day_6_vs_GID2KO.Day_3 = GID2KO.Day_6 - GID2KO.Day_3,
-  GID7KO.Day_6_vs_GID7KO.Day_3 = GID7KO.Day_6 - GID7KO.Day_3,
-  GID8KO.Day_6_vs_GID8KO.Day_3 = GID8KO.Day_6 - GID8KO.Day_3,
-  GID9KO.Day_6_vs_GID9KO.Day_3 = GID9KO.Day_6 - GID9KO.Day_3,
-  WT.Day_6_vs_WT.Day_3 = WT.Day_6 - WT.Day_3,
-
-  # Day9 vs. Day6 (within cell line)
-  GID1KO.Day_9_vs_GID1KO.Day_6 = GID1KO.Day_9 - GID1KO.Day_6,
-  GID2KO.Day_9_vs_GID2KO.Day_6 = GID2KO.Day_9 - GID2KO.Day_6,
-  GID7KO.Day_9_vs_GID7KO.Day_6 = GID7KO.Day_9 - GID7KO.Day_6,
-  GID8KO.Day_9_vs_GID8KO.Day_6 = GID8KO.Day_9 - GID8KO.Day_6,
-  GID9KO.Day_9_vs_GID9KO.Day_6 = GID9KO.Day_9 - GID9KO.Day_6,
-  WT.Day_9_vs_WT.Day_6 = WT.Day_9 - WT.Day_6,
-
-  # Day12 vs. Day9 (within cell line)
-  GID1KO.Day_12_vs_GID1KO.Day_9 = GID1KO.Day_12 - GID1KO.Day_9,
-  GID2KO.Day_12_vs_GID2KO.Day_9 = GID2KO.Day_12 - GID2KO.Day_9,
-  GID7KO.Day_12_vs_GID7KO.Day_9 = GID7KO.Day_12 - GID7KO.Day_9,
-  GID8KO.Day_12_vs_GID8KO.Day_9 = GID8KO.Day_12 - GID8KO.Day_9,
-  GID9KO.Day_12_vs_GID9KO.Day_9 = GID9KO.Day_12 - GID9KO.Day_9,
-  WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
-
-  # Comparisons at Day 3 (cell lines vs. WT)
-  GID1KO.Day_3_vs_WT.Day_3 = GID1KO.Day_3 - WT.Day_3,
-  GID2KO.Day_3_vs_WT.Day_3 = GID2KO.Day_3 - WT.Day_3,
-  GID7KO.Day_3_vs_WT.Day_3 = GID7KO.Day_3 - WT.Day_3,
-  GID8KO.Day_3_vs_WT.Day_3 = GID8KO.Day_3 - WT.Day_3,
-  GID9KO.Day_3_vs_WT.Day_3 = GID9KO.Day_3 - WT.Day_3,
-
-  # Comparisons at Day 6 (cell lines vs. WT)
-  GID1KO.Day_6_vs_WT.Day_6 = GID1KO.Day_6 - WT.Day_6,
-  GID2KO.Day_6_vs_WT.Day_6 = GID2KO.Day_6 - WT.Day_6,
-  GID7KO.Day_6_vs_WT.Day_6 = GID7KO.Day_6 - WT.Day_6,
-  GID8KO.Day_6_vs_WT.Day_6 = GID8KO.Day_6 - WT.Day_6,
-  GID9KO.Day_6_vs_WT.Day_6 = GID9KO.Day_6 - WT.Day_6,
-
-  # Comparisons at Day 9 (cell lines vs. WT)
-  GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
-  GID2KO.Day_9_vs_WT.Day_9 = GID2KO.Day_9 - WT.Day_9,
-  GID7KO.Day_9_vs_WT.Day_9 = GID7KO.Day_9 - WT.Day_9,
-  GID8KO.Day_9_vs_WT.Day_9 = GID8KO.Day_9 - WT.Day_9,
-  GID9KO.Day_9_vs_WT.Day_9 = GID9KO.Day_9 - WT.Day_9,
-  # Comparisons at Day 12 (cell lines vs. WT)
-  GID1KO.Day_12_vs_WT.Day_12 = GID1KO.Day_12 - WT.Day_12,
-  GID2KO.Day_12_vs_WT.Day_12 = GID2KO.Day_12 - WT.Day_12,
-  GID7KO.Day_12_vs_WT.Day_12 = GID7KO.Day_12 - WT.Day_12,
-  GID8KO.Day_12_vs_WT.Day_12 = GID8KO.Day_12 - WT.Day_12,
-  GID9KO.Day_12_vs_WT.Day_12 = GID9KO.Day_12 - WT.Day_12,
-
-  # Interactions (Day6 vs. Day3; cell lines vs. WT)
-  `(GID1KO.Day_6_vs_GID1KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID1KO.Day_6 - GID1KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID2KO.Day_6_vs_GID2KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID2KO.Day_6 - GID2KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID7KO.Day_6_vs_GID7KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID7KO.Day_6 - GID7KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID8KO.Day_6_vs_GID8KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID8KO.Day_6 - GID8KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID9KO.Day_6_vs_GID9KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID9KO.Day_6 - GID9KO.Day_3) - (WT.Day_6 - WT.Day_3),
-
-  # Interactions (Day9 vs. Day6; cell lines vs. WT)
-  `(GID1KO.Day_9_vs_GID1KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID1KO.Day_9 - GID1KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID2KO.Day_9_vs_GID2KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID2KO.Day_9 - GID2KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID7KO.Day_9_vs_GID7KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID7KO.Day_9 - GID7KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID8KO.Day_9_vs_GID8KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID8KO.Day_9 - GID8KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID9KO.Day_9_vs_GID9KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID9KO.Day_9 - GID9KO.Day_6) - (WT.Day_9 - WT.Day_6),
-
-  # Interactions (Day12 vs. Day9; cell lines vs. WT)
-  `(GID1KO.Day_12_vs_GID1KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID1KO.Day_12 - GID1KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID2KO.Day_12_vs_GID2KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID2KO.Day_12 - GID2KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID7KO.Day_12_vs_GID7KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID7KO.Day_12 - GID7KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID8KO.Day_12_vs_GID8KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID8KO.Day_12 - GID8KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID9KO.Day_12_vs_GID9KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID9KO.Day_12 - GID9KO.Day_9) - (WT.Day_12 - WT.Day_9),
-
-  # TODO: Genes that are DE in an cell line vs. WT at start (Day3) via an F-test?
-  levels = design)
-fit <- contrasts.fit(fit, cm)
-fit <- eBayes(fit)
-t(summary(decideTests(fit)))
-
-y2 <- y
-v2 <- v
-fit2 <- fit
-
-# voomWithQualityWeights using all replicates ----------------------------------
-
-y <- SE2DGEList(sce)
-
-# Sum technical replicates
-y <- sumTechReps(y, y$samples$sample)
-
-keep <- filterByExpr(y)
-summary(keep)
-y <- y[keep, , keep.lib.sizes = FALSE]
-
-# NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
-#       matrix are non-zero.
-y <- normLibSizes(y, method = "TMM")
-ggplot(
-  y$samples,
-  aes(
-    x = norm.factors,
-    y = lib.size,
-    colour = group,
-    label = ifelse(
-      isOutlier(y$samples$lib.size, log = TRUE, type = "lower"),
-      colnames(y),
-      ""))) +
-  geom_point() +
-  scale_y_log10(labels = scales::comma) +
-  scale_x_log10() +
-  geom_label_repel(label.size = 0.1, max.overlaps = 100) +
-  theme_cowplot() +
-  scale_colour_manual(values = group_colours)
-
-glimmaMDS(y)
-
-design <- model.matrix(~0 + group, y$samples)
-colnames(design) <- sub("group", "", colnames(design))
-
-v <- voomWithQualityWeights(y, design, plot = TRUE)
-cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Very low (0.02)
-cor$consensus
-v <- voomWithQualityWeights(
-  y,
-  design,
-  block = v$targets$sample,
-  correlation = cor$consensus,
-  plot = TRUE)
-cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Basically doesn't change.
-cor$consensus
-
-fit <- lmFit(
-  v,
-  design,
-  block = v$targets$cell_line_rep,
-  correlation = cor$consensus)
-
-cm <- makeContrasts(
-  # Day6 vs. Day3 (within cell line)
-  GID1KO.Day_6_vs_GID1KO.Day_3 = GID1KO.Day_6 - GID1KO.Day_3,
-  GID2KO.Day_6_vs_GID2KO.Day_3 = GID2KO.Day_6 - GID2KO.Day_3,
-  GID7KO.Day_6_vs_GID7KO.Day_3 = GID7KO.Day_6 - GID7KO.Day_3,
-  GID8KO.Day_6_vs_GID8KO.Day_3 = GID8KO.Day_6 - GID8KO.Day_3,
-  GID9KO.Day_6_vs_GID9KO.Day_3 = GID9KO.Day_6 - GID9KO.Day_3,
-  WT.Day_6_vs_WT.Day_3 = WT.Day_6 - WT.Day_3,
-
-  # Day9 vs. Day6 (within cell line)
-  GID1KO.Day_9_vs_GID1KO.Day_6 = GID1KO.Day_9 - GID1KO.Day_6,
-  GID2KO.Day_9_vs_GID2KO.Day_6 = GID2KO.Day_9 - GID2KO.Day_6,
-  GID7KO.Day_9_vs_GID7KO.Day_6 = GID7KO.Day_9 - GID7KO.Day_6,
-  GID8KO.Day_9_vs_GID8KO.Day_6 = GID8KO.Day_9 - GID8KO.Day_6,
-  GID9KO.Day_9_vs_GID9KO.Day_6 = GID9KO.Day_9 - GID9KO.Day_6,
-  WT.Day_9_vs_WT.Day_6 = WT.Day_9 - WT.Day_6,
-
-  # Day12 vs. Day9 (within cell line)
-  GID1KO.Day_12_vs_GID1KO.Day_9 = GID1KO.Day_12 - GID1KO.Day_9,
-  GID2KO.Day_12_vs_GID2KO.Day_9 = GID2KO.Day_12 - GID2KO.Day_9,
-  GID7KO.Day_12_vs_GID7KO.Day_9 = GID7KO.Day_12 - GID7KO.Day_9,
-  GID8KO.Day_12_vs_GID8KO.Day_9 = GID8KO.Day_12 - GID8KO.Day_9,
-  GID9KO.Day_12_vs_GID9KO.Day_9 = GID9KO.Day_12 - GID9KO.Day_9,
-  WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
-
-  # Comparisons at Day 3 (cell lines vs. WT)
-  GID1KO.Day_3_vs_WT.Day_3 = GID1KO.Day_3 - WT.Day_3,
-  GID2KO.Day_3_vs_WT.Day_3 = GID2KO.Day_3 - WT.Day_3,
-  GID7KO.Day_3_vs_WT.Day_3 = GID7KO.Day_3 - WT.Day_3,
-  GID8KO.Day_3_vs_WT.Day_3 = GID8KO.Day_3 - WT.Day_3,
-  GID9KO.Day_3_vs_WT.Day_3 = GID9KO.Day_3 - WT.Day_3,
-
-  # Comparisons at Day 6 (cell lines vs. WT)
-  GID1KO.Day_6_vs_WT.Day_6 = GID1KO.Day_6 - WT.Day_6,
-  GID2KO.Day_6_vs_WT.Day_6 = GID2KO.Day_6 - WT.Day_6,
-  GID7KO.Day_6_vs_WT.Day_6 = GID7KO.Day_6 - WT.Day_6,
-  GID8KO.Day_6_vs_WT.Day_6 = GID8KO.Day_6 - WT.Day_6,
-  GID9KO.Day_6_vs_WT.Day_6 = GID9KO.Day_6 - WT.Day_6,
-
-  # Comparisons at Day 9 (cell lines vs. WT)
-  GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
-  GID2KO.Day_9_vs_WT.Day_9 = GID2KO.Day_9 - WT.Day_9,
-  GID7KO.Day_9_vs_WT.Day_9 = GID7KO.Day_9 - WT.Day_9,
-  GID8KO.Day_9_vs_WT.Day_9 = GID8KO.Day_9 - WT.Day_9,
-  GID9KO.Day_9_vs_WT.Day_9 = GID9KO.Day_9 - WT.Day_9,
-  # Comparisons at Day 12 (cell lines vs. WT)
-  GID1KO.Day_12_vs_WT.Day_12 = GID1KO.Day_12 - WT.Day_12,
-  GID2KO.Day_12_vs_WT.Day_12 = GID2KO.Day_12 - WT.Day_12,
-  GID7KO.Day_12_vs_WT.Day_12 = GID7KO.Day_12 - WT.Day_12,
-  GID8KO.Day_12_vs_WT.Day_12 = GID8KO.Day_12 - WT.Day_12,
-  GID9KO.Day_12_vs_WT.Day_12 = GID9KO.Day_12 - WT.Day_12,
-
-  # Interactions (Day6 vs. Day3; cell lines vs. WT)
-  `(GID1KO.Day_6_vs_GID1KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID1KO.Day_6 - GID1KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID2KO.Day_6_vs_GID2KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID2KO.Day_6 - GID2KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID7KO.Day_6_vs_GID7KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID7KO.Day_6 - GID7KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID8KO.Day_6_vs_GID8KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID8KO.Day_6 - GID8KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID9KO.Day_6_vs_GID9KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID9KO.Day_6 - GID9KO.Day_3) - (WT.Day_6 - WT.Day_3),
-
-  # Interactions (Day9 vs. Day6; cell lines vs. WT)
-  `(GID1KO.Day_9_vs_GID1KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID1KO.Day_9 - GID1KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID2KO.Day_9_vs_GID2KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID2KO.Day_9 - GID2KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID7KO.Day_9_vs_GID7KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID7KO.Day_9 - GID7KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID8KO.Day_9_vs_GID8KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID8KO.Day_9 - GID8KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID9KO.Day_9_vs_GID9KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID9KO.Day_9 - GID9KO.Day_6) - (WT.Day_9 - WT.Day_6),
-
-  # Interactions (Day12 vs. Day9; cell lines vs. WT)
-  `(GID1KO.Day_12_vs_GID1KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID1KO.Day_12 - GID1KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID2KO.Day_12_vs_GID2KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID2KO.Day_12 - GID2KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID7KO.Day_12_vs_GID7KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID7KO.Day_12 - GID7KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID8KO.Day_12_vs_GID8KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID8KO.Day_12 - GID8KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID9KO.Day_12_vs_GID9KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID9KO.Day_12 - GID9KO.Day_9) - (WT.Day_12 - WT.Day_9),
-
-  # TODO: Genes that are DE in an cell line vs. WT at start (Day3) via an F-test?
-  levels = design)
-fit <- contrasts.fit(fit, cm)
-fit <- eBayes(fit)
-t(summary(decideTests(fit)))
-
-y3 <- y
-v3 <- v
-fit3 <- fit
-
-# voomWithQualityWeights filtering out low-quality replicates-------------------
-
-y <- SE2DGEList(sce)
-
-# Subset to relevant samples
-# NOTE: Not using criteria from preprocessing Rmd because it is stricter than
-#       I want/need for DE analysis. Here, I really just want to remove those
-#       libraries with crap library size.
-libsize_drop <- isOutlier(colSums(y$counts), type = "lower", log = TRUE)
-keep_rep <- !libsize_drop
-summary(keep_rep)
-y <- y[, keep_rep]
-y$samples <- droplevels(y$samples)
-
-# Sum technical replicates
-y <- sumTechReps(y, y$samples$sample)
-
-# NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
-#       matrix are non-zero.
-y <- normLibSizes(y, method = "TMM")
-ggplot(
-  y$samples,
-  aes(
-    x = norm.factors,
-    y = lib.size,
-    colour = group,
-    label = ifelse(
-      isOutlier(y$samples$lib.size, log = TRUE, type = "lower"),
-      colnames(y),
-      ""))) +
-  geom_point() +
-  scale_y_log10(labels = scales::comma) +
-  scale_x_log10() +
-  geom_label_repel(label.size = 0.1, max.overlaps = 100) +
-  theme_cowplot() +
-  scale_colour_manual(values = group_colours)
-
-glimmaMDS(y)
-
-design <- model.matrix(~0 + group, y$samples)
-colnames(design) <- sub("group", "", colnames(design))
-
-v <- voomWithQualityWeights(y, design, plot = TRUE)
-cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Very low (0.02)
-cor$consensus
-v <- voomWithQualityWeights(
-  y,
-  design,
-  block = v$targets$sample,
-  correlation = cor$consensus,
-  plot = TRUE)
-cor <- duplicateCorrelation(v, design, block = v$targets$cell_line_rep)
-# NOTE: Basically doesn't change.
-cor$consensus
-
-fit <- lmFit(
-  v,
-  design,
-  block = v$targets$cell_line_rep,
-  correlation = cor$consensus)
-cm <- makeContrasts(
-  # Day6 vs. Day3 (within cell line)
-  GID1KO.Day_6_vs_GID1KO.Day_3 = GID1KO.Day_6 - GID1KO.Day_3,
-  GID2KO.Day_6_vs_GID2KO.Day_3 = GID2KO.Day_6 - GID2KO.Day_3,
-  GID7KO.Day_6_vs_GID7KO.Day_3 = GID7KO.Day_6 - GID7KO.Day_3,
-  GID8KO.Day_6_vs_GID8KO.Day_3 = GID8KO.Day_6 - GID8KO.Day_3,
-  GID9KO.Day_6_vs_GID9KO.Day_3 = GID9KO.Day_6 - GID9KO.Day_3,
-  WT.Day_6_vs_WT.Day_3 = WT.Day_6 - WT.Day_3,
-
-  # Day9 vs. Day6 (within cell line)
-  GID1KO.Day_9_vs_GID1KO.Day_6 = GID1KO.Day_9 - GID1KO.Day_6,
-  GID2KO.Day_9_vs_GID2KO.Day_6 = GID2KO.Day_9 - GID2KO.Day_6,
-  GID7KO.Day_9_vs_GID7KO.Day_6 = GID7KO.Day_9 - GID7KO.Day_6,
-  GID8KO.Day_9_vs_GID8KO.Day_6 = GID8KO.Day_9 - GID8KO.Day_6,
-  GID9KO.Day_9_vs_GID9KO.Day_6 = GID9KO.Day_9 - GID9KO.Day_6,
-  WT.Day_9_vs_WT.Day_6 = WT.Day_9 - WT.Day_6,
-
-  # Day12 vs. Day9 (within cell line)
-  GID1KO.Day_12_vs_GID1KO.Day_9 = GID1KO.Day_12 - GID1KO.Day_9,
-  GID2KO.Day_12_vs_GID2KO.Day_9 = GID2KO.Day_12 - GID2KO.Day_9,
-  GID7KO.Day_12_vs_GID7KO.Day_9 = GID7KO.Day_12 - GID7KO.Day_9,
-  GID8KO.Day_12_vs_GID8KO.Day_9 = GID8KO.Day_12 - GID8KO.Day_9,
-  GID9KO.Day_12_vs_GID9KO.Day_9 = GID9KO.Day_12 - GID9KO.Day_9,
-  WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
-
-  # Comparisons at Day 3 (cell lines vs. WT)
-  GID1KO.Day_3_vs_WT.Day_3 = GID1KO.Day_3 - WT.Day_3,
-  GID2KO.Day_3_vs_WT.Day_3 = GID2KO.Day_3 - WT.Day_3,
-  GID7KO.Day_3_vs_WT.Day_3 = GID7KO.Day_3 - WT.Day_3,
-  GID8KO.Day_3_vs_WT.Day_3 = GID8KO.Day_3 - WT.Day_3,
-  GID9KO.Day_3_vs_WT.Day_3 = GID9KO.Day_3 - WT.Day_3,
-
-  # Comparisons at Day 6 (cell lines vs. WT)
-  GID1KO.Day_6_vs_WT.Day_6 = GID1KO.Day_6 - WT.Day_6,
-  GID2KO.Day_6_vs_WT.Day_6 = GID2KO.Day_6 - WT.Day_6,
-  GID7KO.Day_6_vs_WT.Day_6 = GID7KO.Day_6 - WT.Day_6,
-  GID8KO.Day_6_vs_WT.Day_6 = GID8KO.Day_6 - WT.Day_6,
-  GID9KO.Day_6_vs_WT.Day_6 = GID9KO.Day_6 - WT.Day_6,
-
-  # Comparisons at Day 9 (cell lines vs. WT)
-  GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
-  GID2KO.Day_9_vs_WT.Day_9 = GID2KO.Day_9 - WT.Day_9,
-  GID7KO.Day_9_vs_WT.Day_9 = GID7KO.Day_9 - WT.Day_9,
-  GID8KO.Day_9_vs_WT.Day_9 = GID8KO.Day_9 - WT.Day_9,
-  GID9KO.Day_9_vs_WT.Day_9 = GID9KO.Day_9 - WT.Day_9,
-  # Comparisons at Day 12 (cell lines vs. WT)
-  GID1KO.Day_12_vs_WT.Day_12 = GID1KO.Day_12 - WT.Day_12,
-  GID2KO.Day_12_vs_WT.Day_12 = GID2KO.Day_12 - WT.Day_12,
-  GID7KO.Day_12_vs_WT.Day_12 = GID7KO.Day_12 - WT.Day_12,
-  GID8KO.Day_12_vs_WT.Day_12 = GID8KO.Day_12 - WT.Day_12,
-  GID9KO.Day_12_vs_WT.Day_12 = GID9KO.Day_12 - WT.Day_12,
-
-  # Interactions (Day6 vs. Day3; cell lines vs. WT)
-  `(GID1KO.Day_6_vs_GID1KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID1KO.Day_6 - GID1KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID2KO.Day_6_vs_GID2KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID2KO.Day_6 - GID2KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID7KO.Day_6_vs_GID7KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID7KO.Day_6 - GID7KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID8KO.Day_6_vs_GID8KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID8KO.Day_6 - GID8KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID9KO.Day_6_vs_GID9KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID9KO.Day_6 - GID9KO.Day_3) - (WT.Day_6 - WT.Day_3),
-
-  # Interactions (Day9 vs. Day6; cell lines vs. WT)
-  `(GID1KO.Day_9_vs_GID1KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID1KO.Day_9 - GID1KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID2KO.Day_9_vs_GID2KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID2KO.Day_9 - GID2KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID7KO.Day_9_vs_GID7KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID7KO.Day_9 - GID7KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID8KO.Day_9_vs_GID8KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID8KO.Day_9 - GID8KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID9KO.Day_9_vs_GID9KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID9KO.Day_9 - GID9KO.Day_6) - (WT.Day_9 - WT.Day_6),
-
-  # Interactions (Day12 vs. Day9; cell lines vs. WT)
-  `(GID1KO.Day_12_vs_GID1KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID1KO.Day_12 - GID1KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID2KO.Day_12_vs_GID2KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID2KO.Day_12 - GID2KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID7KO.Day_12_vs_GID7KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID7KO.Day_12 - GID7KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID8KO.Day_12_vs_GID8KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID8KO.Day_12 - GID8KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID9KO.Day_12_vs_GID9KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID9KO.Day_12 - GID9KO.Day_9) - (WT.Day_12 - WT.Day_9),
-
-  # TODO: Genes that are DE in an cell line vs. WT at start (Day3) via an F-test?
-  levels = design)
-fit <- contrasts.fit(fit, cm)
-fit <- eBayes(fit)
-t(summary(decideTests(fit)))
-
-y4 <- y
-v4 <- v
-fit4 <- fit
-
-# voomLmFit using all replicates -----------------------------------------------
-
-y <- SE2DGEList(sce)
-
-# Sum technical replicates
-y <- sumTechReps(y, y$samples$sample)
-
-keep <- filterByExpr(y)
-summary(keep)
-y <- y[keep, , keep.lib.sizes = FALSE]
-
-# NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
-#       matrix are non-zero.
-y <- normLibSizes(y, method = "TMM")
-ggplot(
-  y$samples,
-  aes(
-    x = norm.factors,
-    y = lib.size,
-    colour = group,
-    label = ifelse(
-      isOutlier(y$samples$lib.size, log = TRUE, type = "lower"),
-      colnames(y),
-      ""))) +
-  geom_point() +
-  scale_y_log10(labels = scales::comma) +
-  scale_x_log10() +
-  geom_label_repel(label.size = 0.1, max.overlaps = 100) +
-  theme_cowplot() +
-  scale_colour_manual(values = group_colours)
-
-glimmaMDS(y)
-
-design <- model.matrix(~0 + group, y$samples)
-colnames(design) <- sub("group", "", colnames(design))
-
-fit <- voomLmFit(
-  y,
-  design,
-  block = y$samples$cell_line_rep,
-  plot = TRUE,
-  keep.EList = TRUE)
-# NOTE: Very low correlation (0.03)
-fit$correlation
-
-cm <- makeContrasts(
-  # Day6 vs. Day3 (within cell line)
-  GID1KO.Day_6_vs_GID1KO.Day_3 = GID1KO.Day_6 - GID1KO.Day_3,
-  GID2KO.Day_6_vs_GID2KO.Day_3 = GID2KO.Day_6 - GID2KO.Day_3,
-  GID7KO.Day_6_vs_GID7KO.Day_3 = GID7KO.Day_6 - GID7KO.Day_3,
-  GID8KO.Day_6_vs_GID8KO.Day_3 = GID8KO.Day_6 - GID8KO.Day_3,
-  GID9KO.Day_6_vs_GID9KO.Day_3 = GID9KO.Day_6 - GID9KO.Day_3,
-  WT.Day_6_vs_WT.Day_3 = WT.Day_6 - WT.Day_3,
-
-  # Day9 vs. Day6 (within cell line)
-  GID1KO.Day_9_vs_GID1KO.Day_6 = GID1KO.Day_9 - GID1KO.Day_6,
-  GID2KO.Day_9_vs_GID2KO.Day_6 = GID2KO.Day_9 - GID2KO.Day_6,
-  GID7KO.Day_9_vs_GID7KO.Day_6 = GID7KO.Day_9 - GID7KO.Day_6,
-  GID8KO.Day_9_vs_GID8KO.Day_6 = GID8KO.Day_9 - GID8KO.Day_6,
-  GID9KO.Day_9_vs_GID9KO.Day_6 = GID9KO.Day_9 - GID9KO.Day_6,
-  WT.Day_9_vs_WT.Day_6 = WT.Day_9 - WT.Day_6,
-
-  # Day12 vs. Day9 (within cell line)
-  GID1KO.Day_12_vs_GID1KO.Day_9 = GID1KO.Day_12 - GID1KO.Day_9,
-  GID2KO.Day_12_vs_GID2KO.Day_9 = GID2KO.Day_12 - GID2KO.Day_9,
-  GID7KO.Day_12_vs_GID7KO.Day_9 = GID7KO.Day_12 - GID7KO.Day_9,
-  GID8KO.Day_12_vs_GID8KO.Day_9 = GID8KO.Day_12 - GID8KO.Day_9,
-  GID9KO.Day_12_vs_GID9KO.Day_9 = GID9KO.Day_12 - GID9KO.Day_9,
-  WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
-
-  # Comparisons at Day 3 (cell lines vs. WT)
-  GID1KO.Day_3_vs_WT.Day_3 = GID1KO.Day_3 - WT.Day_3,
-  GID2KO.Day_3_vs_WT.Day_3 = GID2KO.Day_3 - WT.Day_3,
-  GID7KO.Day_3_vs_WT.Day_3 = GID7KO.Day_3 - WT.Day_3,
-  GID8KO.Day_3_vs_WT.Day_3 = GID8KO.Day_3 - WT.Day_3,
-  GID9KO.Day_3_vs_WT.Day_3 = GID9KO.Day_3 - WT.Day_3,
-
-  # Comparisons at Day 6 (cell lines vs. WT)
-  GID1KO.Day_6_vs_WT.Day_6 = GID1KO.Day_6 - WT.Day_6,
-  GID2KO.Day_6_vs_WT.Day_6 = GID2KO.Day_6 - WT.Day_6,
-  GID7KO.Day_6_vs_WT.Day_6 = GID7KO.Day_6 - WT.Day_6,
-  GID8KO.Day_6_vs_WT.Day_6 = GID8KO.Day_6 - WT.Day_6,
-  GID9KO.Day_6_vs_WT.Day_6 = GID9KO.Day_6 - WT.Day_6,
-
-  # Comparisons at Day 9 (cell lines vs. WT)
-  GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
-  GID2KO.Day_9_vs_WT.Day_9 = GID2KO.Day_9 - WT.Day_9,
-  GID7KO.Day_9_vs_WT.Day_9 = GID7KO.Day_9 - WT.Day_9,
-  GID8KO.Day_9_vs_WT.Day_9 = GID8KO.Day_9 - WT.Day_9,
-  GID9KO.Day_9_vs_WT.Day_9 = GID9KO.Day_9 - WT.Day_9,
-  # Comparisons at Day 12 (cell lines vs. WT)
-  GID1KO.Day_12_vs_WT.Day_12 = GID1KO.Day_12 - WT.Day_12,
-  GID2KO.Day_12_vs_WT.Day_12 = GID2KO.Day_12 - WT.Day_12,
-  GID7KO.Day_12_vs_WT.Day_12 = GID7KO.Day_12 - WT.Day_12,
-  GID8KO.Day_12_vs_WT.Day_12 = GID8KO.Day_12 - WT.Day_12,
-  GID9KO.Day_12_vs_WT.Day_12 = GID9KO.Day_12 - WT.Day_12,
-
-  # Interactions (Day6 vs. Day3; cell lines vs. WT)
-  `(GID1KO.Day_6_vs_GID1KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID1KO.Day_6 - GID1KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID2KO.Day_6_vs_GID2KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID2KO.Day_6 - GID2KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID7KO.Day_6_vs_GID7KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID7KO.Day_6 - GID7KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID8KO.Day_6_vs_GID8KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID8KO.Day_6 - GID8KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID9KO.Day_6_vs_GID9KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID9KO.Day_6 - GID9KO.Day_3) - (WT.Day_6 - WT.Day_3),
-
-  # Interactions (Day9 vs. Day6; cell lines vs. WT)
-  `(GID1KO.Day_9_vs_GID1KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID1KO.Day_9 - GID1KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID2KO.Day_9_vs_GID2KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID2KO.Day_9 - GID2KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID7KO.Day_9_vs_GID7KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID7KO.Day_9 - GID7KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID8KO.Day_9_vs_GID8KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID8KO.Day_9 - GID8KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID9KO.Day_9_vs_GID9KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID9KO.Day_9 - GID9KO.Day_6) - (WT.Day_9 - WT.Day_6),
-
-  # Interactions (Day12 vs. Day9; cell lines vs. WT)
-  `(GID1KO.Day_12_vs_GID1KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID1KO.Day_12 - GID1KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID2KO.Day_12_vs_GID2KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID2KO.Day_12 - GID2KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID7KO.Day_12_vs_GID7KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID7KO.Day_12 - GID7KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID8KO.Day_12_vs_GID8KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID8KO.Day_12 - GID8KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID9KO.Day_12_vs_GID9KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID9KO.Day_12 - GID9KO.Day_9) - (WT.Day_12 - WT.Day_9),
-
-  # TODO: Genes that are DE in an cell line vs. WT at start (Day3) via an F-test?
-  levels = design)
-fit <- contrasts.fit(fit, cm)
-fit <- eBayes(fit)
-t(summary(decideTests(fit)))
-
-y5 <- y
-fit5 <- fit
-
-# voomLmFit filtering out low-quality replicates -------------------------------
-
-y <- SE2DGEList(sce)
-
-# Subset to relevant samples
-# NOTE: Not using criteria from preprocessing Rmd because it is stricter than
-#       I want/need for DE analysis. Here, I really just want to remove those
-#       libraries with crap library size.
-libsize_drop <- isOutlier(colSums(y$counts), type = "lower", log = TRUE)
-keep_rep <- !libsize_drop
-summary(keep_rep)
-y <- y[, keep_rep]
-y$samples <- droplevels(y$samples)
-
-# Sum technical replicates
-y <- sumTechReps(y, y$samples$sample)
-
-# NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
-#       matrix are non-zero.
-y <- normLibSizes(y, method = "TMM")
-ggplot(
-  y$samples,
-  aes(
-    x = norm.factors,
-    y = lib.size,
-    colour = group,
-    label = ifelse(
-      isOutlier(y$samples$lib.size, log = TRUE, type = "lower"),
-      colnames(y),
-      ""))) +
-  geom_point() +
-  scale_y_log10(labels = scales::comma) +
-  scale_x_log10() +
-  geom_label_repel(label.size = 0.1, max.overlaps = 100) +
-  theme_cowplot() +
-  scale_colour_manual(values = group_colours)
-
-glimmaMDS(y)
-
-design <- model.matrix(~0 + group, y$samples)
-colnames(design) <- sub("group", "", colnames(design))
-
-fit <- voomLmFit(
-  y,
-  design,
-  block = y$samples$cell_line_rep,
-  plot = TRUE,
-  keep.EList = TRUE)
-# NOTE: Very low correlation (0.03)
-fit$correlation
-
-cm <- makeContrasts(
-  # Day6 vs. Day3 (within cell line)
-  GID1KO.Day_6_vs_GID1KO.Day_3 = GID1KO.Day_6 - GID1KO.Day_3,
-  GID2KO.Day_6_vs_GID2KO.Day_3 = GID2KO.Day_6 - GID2KO.Day_3,
-  GID7KO.Day_6_vs_GID7KO.Day_3 = GID7KO.Day_6 - GID7KO.Day_3,
-  GID8KO.Day_6_vs_GID8KO.Day_3 = GID8KO.Day_6 - GID8KO.Day_3,
-  GID9KO.Day_6_vs_GID9KO.Day_3 = GID9KO.Day_6 - GID9KO.Day_3,
-  WT.Day_6_vs_WT.Day_3 = WT.Day_6 - WT.Day_3,
-
-  # Day9 vs. Day6 (within cell line)
-  GID1KO.Day_9_vs_GID1KO.Day_6 = GID1KO.Day_9 - GID1KO.Day_6,
-  GID2KO.Day_9_vs_GID2KO.Day_6 = GID2KO.Day_9 - GID2KO.Day_6,
-  GID7KO.Day_9_vs_GID7KO.Day_6 = GID7KO.Day_9 - GID7KO.Day_6,
-  GID8KO.Day_9_vs_GID8KO.Day_6 = GID8KO.Day_9 - GID8KO.Day_6,
-  GID9KO.Day_9_vs_GID9KO.Day_6 = GID9KO.Day_9 - GID9KO.Day_6,
-  WT.Day_9_vs_WT.Day_6 = WT.Day_9 - WT.Day_6,
-
-  # Day12 vs. Day9 (within cell line)
-  GID1KO.Day_12_vs_GID1KO.Day_9 = GID1KO.Day_12 - GID1KO.Day_9,
-  GID2KO.Day_12_vs_GID2KO.Day_9 = GID2KO.Day_12 - GID2KO.Day_9,
-  GID7KO.Day_12_vs_GID7KO.Day_9 = GID7KO.Day_12 - GID7KO.Day_9,
-  GID8KO.Day_12_vs_GID8KO.Day_9 = GID8KO.Day_12 - GID8KO.Day_9,
-  GID9KO.Day_12_vs_GID9KO.Day_9 = GID9KO.Day_12 - GID9KO.Day_9,
-  WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
-
-  # Comparisons at Day 3 (cell lines vs. WT)
-  GID1KO.Day_3_vs_WT.Day_3 = GID1KO.Day_3 - WT.Day_3,
-  GID2KO.Day_3_vs_WT.Day_3 = GID2KO.Day_3 - WT.Day_3,
-  GID7KO.Day_3_vs_WT.Day_3 = GID7KO.Day_3 - WT.Day_3,
-  GID8KO.Day_3_vs_WT.Day_3 = GID8KO.Day_3 - WT.Day_3,
-  GID9KO.Day_3_vs_WT.Day_3 = GID9KO.Day_3 - WT.Day_3,
-
-  # Comparisons at Day 6 (cell lines vs. WT)
-  GID1KO.Day_6_vs_WT.Day_6 = GID1KO.Day_6 - WT.Day_6,
-  GID2KO.Day_6_vs_WT.Day_6 = GID2KO.Day_6 - WT.Day_6,
-  GID7KO.Day_6_vs_WT.Day_6 = GID7KO.Day_6 - WT.Day_6,
-  GID8KO.Day_6_vs_WT.Day_6 = GID8KO.Day_6 - WT.Day_6,
-  GID9KO.Day_6_vs_WT.Day_6 = GID9KO.Day_6 - WT.Day_6,
-
-  # Comparisons at Day 9 (cell lines vs. WT)
-  GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
-  GID2KO.Day_9_vs_WT.Day_9 = GID2KO.Day_9 - WT.Day_9,
-  GID7KO.Day_9_vs_WT.Day_9 = GID7KO.Day_9 - WT.Day_9,
-  GID8KO.Day_9_vs_WT.Day_9 = GID8KO.Day_9 - WT.Day_9,
-  GID9KO.Day_9_vs_WT.Day_9 = GID9KO.Day_9 - WT.Day_9,
-  # Comparisons at Day 12 (cell lines vs. WT)
-  GID1KO.Day_12_vs_WT.Day_12 = GID1KO.Day_12 - WT.Day_12,
-  GID2KO.Day_12_vs_WT.Day_12 = GID2KO.Day_12 - WT.Day_12,
-  GID7KO.Day_12_vs_WT.Day_12 = GID7KO.Day_12 - WT.Day_12,
-  GID8KO.Day_12_vs_WT.Day_12 = GID8KO.Day_12 - WT.Day_12,
-  GID9KO.Day_12_vs_WT.Day_12 = GID9KO.Day_12 - WT.Day_12,
-
-  # Interactions (Day6 vs. Day3; cell lines vs. WT)
-  `(GID1KO.Day_6_vs_GID1KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID1KO.Day_6 - GID1KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID2KO.Day_6_vs_GID2KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID2KO.Day_6 - GID2KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID7KO.Day_6_vs_GID7KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID7KO.Day_6 - GID7KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID8KO.Day_6_vs_GID8KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID8KO.Day_6 - GID8KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID9KO.Day_6_vs_GID9KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID9KO.Day_6 - GID9KO.Day_3) - (WT.Day_6 - WT.Day_3),
-
-  # Interactions (Day9 vs. Day6; cell lines vs. WT)
-  `(GID1KO.Day_9_vs_GID1KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID1KO.Day_9 - GID1KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID2KO.Day_9_vs_GID2KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID2KO.Day_9 - GID2KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID7KO.Day_9_vs_GID7KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID7KO.Day_9 - GID7KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID8KO.Day_9_vs_GID8KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID8KO.Day_9 - GID8KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID9KO.Day_9_vs_GID9KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID9KO.Day_9 - GID9KO.Day_6) - (WT.Day_9 - WT.Day_6),
-
-  # Interactions (Day12 vs. Day9; cell lines vs. WT)
-  `(GID1KO.Day_12_vs_GID1KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID1KO.Day_12 - GID1KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID2KO.Day_12_vs_GID2KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID2KO.Day_12 - GID2KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID7KO.Day_12_vs_GID7KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID7KO.Day_12 - GID7KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID8KO.Day_12_vs_GID8KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID8KO.Day_12 - GID8KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID9KO.Day_12_vs_GID9KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID9KO.Day_12 - GID9KO.Day_9) - (WT.Day_12 - WT.Day_9),
-
-  # TODO: Genes that are DE in an cell line vs. WT at start (Day3) via an F-test?
-  levels = design)
-fit <- contrasts.fit(fit, cm)
-fit <- eBayes(fit)
-t(summary(decideTests(fit)))
-
-y6 <- y
-fit6 <- fit
-
-# voomLmFit with quality weights using all replicates --------------------------
-
-y <- SE2DGEList(sce)
-
-# Sum technical replicates
-y <- sumTechReps(y, y$samples$sample)
-
-keep <- filterByExpr(y)
-summary(keep)
-y <- y[keep, , keep.lib.sizes = FALSE]
-
-# NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
-#       matrix are non-zero.
-y <- normLibSizes(y, method = "TMM")
-ggplot(
-  y$samples,
-  aes(
-    x = norm.factors,
-    y = lib.size,
-    colour = group,
-    label = ifelse(
-      isOutlier(y$samples$lib.size, log = TRUE, type = "lower"),
-      colnames(y),
-      ""))) +
-  geom_point() +
-  scale_y_log10(labels = scales::comma) +
-  scale_x_log10() +
-  geom_label_repel(label.size = 0.1, max.overlaps = 100) +
-  theme_cowplot() +
-  scale_colour_manual(values = group_colours)
-
-glimmaMDS(y)
-
-design <- model.matrix(~0 + group, y$samples)
-colnames(design) <- sub("group", "", colnames(design))
-
-fit <- voomLmFit(
-  y,
-  design,
-  block = y$samples$cell_line_rep,
-  sample.weights = TRUE,
-  plot = TRUE,
-  keep.EList = TRUE)
-# NOTE: Very low correlation (0.02)
-fit$correlation
-
-cm <- makeContrasts(
-  # Day6 vs. Day3 (within cell line)
-  GID1KO.Day_6_vs_GID1KO.Day_3 = GID1KO.Day_6 - GID1KO.Day_3,
-  GID2KO.Day_6_vs_GID2KO.Day_3 = GID2KO.Day_6 - GID2KO.Day_3,
-  GID7KO.Day_6_vs_GID7KO.Day_3 = GID7KO.Day_6 - GID7KO.Day_3,
-  GID8KO.Day_6_vs_GID8KO.Day_3 = GID8KO.Day_6 - GID8KO.Day_3,
-  GID9KO.Day_6_vs_GID9KO.Day_3 = GID9KO.Day_6 - GID9KO.Day_3,
-  WT.Day_6_vs_WT.Day_3 = WT.Day_6 - WT.Day_3,
-
-  # Day9 vs. Day6 (within cell line)
-  GID1KO.Day_9_vs_GID1KO.Day_6 = GID1KO.Day_9 - GID1KO.Day_6,
-  GID2KO.Day_9_vs_GID2KO.Day_6 = GID2KO.Day_9 - GID2KO.Day_6,
-  GID7KO.Day_9_vs_GID7KO.Day_6 = GID7KO.Day_9 - GID7KO.Day_6,
-  GID8KO.Day_9_vs_GID8KO.Day_6 = GID8KO.Day_9 - GID8KO.Day_6,
-  GID9KO.Day_9_vs_GID9KO.Day_6 = GID9KO.Day_9 - GID9KO.Day_6,
-  WT.Day_9_vs_WT.Day_6 = WT.Day_9 - WT.Day_6,
-
-  # Day12 vs. Day9 (within cell line)
-  GID1KO.Day_12_vs_GID1KO.Day_9 = GID1KO.Day_12 - GID1KO.Day_9,
-  GID2KO.Day_12_vs_GID2KO.Day_9 = GID2KO.Day_12 - GID2KO.Day_9,
-  GID7KO.Day_12_vs_GID7KO.Day_9 = GID7KO.Day_12 - GID7KO.Day_9,
-  GID8KO.Day_12_vs_GID8KO.Day_9 = GID8KO.Day_12 - GID8KO.Day_9,
-  GID9KO.Day_12_vs_GID9KO.Day_9 = GID9KO.Day_12 - GID9KO.Day_9,
-  WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
-
-  # Comparisons at Day 3 (cell lines vs. WT)
-  GID1KO.Day_3_vs_WT.Day_3 = GID1KO.Day_3 - WT.Day_3,
-  GID2KO.Day_3_vs_WT.Day_3 = GID2KO.Day_3 - WT.Day_3,
-  GID7KO.Day_3_vs_WT.Day_3 = GID7KO.Day_3 - WT.Day_3,
-  GID8KO.Day_3_vs_WT.Day_3 = GID8KO.Day_3 - WT.Day_3,
-  GID9KO.Day_3_vs_WT.Day_3 = GID9KO.Day_3 - WT.Day_3,
-
-  # Comparisons at Day 6 (cell lines vs. WT)
-  GID1KO.Day_6_vs_WT.Day_6 = GID1KO.Day_6 - WT.Day_6,
-  GID2KO.Day_6_vs_WT.Day_6 = GID2KO.Day_6 - WT.Day_6,
-  GID7KO.Day_6_vs_WT.Day_6 = GID7KO.Day_6 - WT.Day_6,
-  GID8KO.Day_6_vs_WT.Day_6 = GID8KO.Day_6 - WT.Day_6,
-  GID9KO.Day_6_vs_WT.Day_6 = GID9KO.Day_6 - WT.Day_6,
-
-  # Comparisons at Day 9 (cell lines vs. WT)
-  GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
-  GID2KO.Day_9_vs_WT.Day_9 = GID2KO.Day_9 - WT.Day_9,
-  GID7KO.Day_9_vs_WT.Day_9 = GID7KO.Day_9 - WT.Day_9,
-  GID8KO.Day_9_vs_WT.Day_9 = GID8KO.Day_9 - WT.Day_9,
-  GID9KO.Day_9_vs_WT.Day_9 = GID9KO.Day_9 - WT.Day_9,
-  # Comparisons at Day 12 (cell lines vs. WT)
-  GID1KO.Day_12_vs_WT.Day_12 = GID1KO.Day_12 - WT.Day_12,
-  GID2KO.Day_12_vs_WT.Day_12 = GID2KO.Day_12 - WT.Day_12,
-  GID7KO.Day_12_vs_WT.Day_12 = GID7KO.Day_12 - WT.Day_12,
-  GID8KO.Day_12_vs_WT.Day_12 = GID8KO.Day_12 - WT.Day_12,
-  GID9KO.Day_12_vs_WT.Day_12 = GID9KO.Day_12 - WT.Day_12,
-
-  # Interactions (Day6 vs. Day3; cell lines vs. WT)
-  `(GID1KO.Day_6_vs_GID1KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID1KO.Day_6 - GID1KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID2KO.Day_6_vs_GID2KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID2KO.Day_6 - GID2KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID7KO.Day_6_vs_GID7KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID7KO.Day_6 - GID7KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID8KO.Day_6_vs_GID8KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID8KO.Day_6 - GID8KO.Day_3) - (WT.Day_6 - WT.Day_3),
-  `(GID9KO.Day_6_vs_GID9KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (GID9KO.Day_6 - GID9KO.Day_3) - (WT.Day_6 - WT.Day_3),
-
-  # Interactions (Day9 vs. Day6; cell lines vs. WT)
-  `(GID1KO.Day_9_vs_GID1KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID1KO.Day_9 - GID1KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID2KO.Day_9_vs_GID2KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID2KO.Day_9 - GID2KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID7KO.Day_9_vs_GID7KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID7KO.Day_9 - GID7KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID8KO.Day_9_vs_GID8KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID8KO.Day_9 - GID8KO.Day_6) - (WT.Day_9 - WT.Day_6),
-  `(GID9KO.Day_9_vs_GID9KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (GID9KO.Day_9 - GID9KO.Day_6) - (WT.Day_9 - WT.Day_6),
-
-  # Interactions (Day12 vs. Day9; cell lines vs. WT)
-  `(GID1KO.Day_12_vs_GID1KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID1KO.Day_12 - GID1KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID2KO.Day_12_vs_GID2KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID2KO.Day_12 - GID2KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID7KO.Day_12_vs_GID7KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID7KO.Day_12 - GID7KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID8KO.Day_12_vs_GID8KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID8KO.Day_12 - GID8KO.Day_9) - (WT.Day_12 - WT.Day_9),
-  `(GID9KO.Day_12_vs_GID9KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (GID9KO.Day_12 - GID9KO.Day_9) - (WT.Day_12 - WT.Day_9),
-
-  # TODO: Genes that are DE in an cell line vs. WT at start (Day3) via an F-test?
-  levels = design)
-fit <- contrasts.fit(fit, cm)
-fit <- eBayes(fit)
-t(summary(decideTests(fit)))
-
-y7 <- y
-fit7 <- fit
-
-# voomLmFit with quality weights filtering out low-quality replicates ----------
+# NOTE: Using voomLmFit with quality weights after filtering out low-quality
+#       replicates
 
 y <- SE2DGEList(sce)
 
@@ -1191,6 +152,11 @@ cm <- makeContrasts(
   GID7KO.Day_3_vs_WT.Day_3 = GID7KO.Day_3 - WT.Day_3,
   GID8KO.Day_3_vs_WT.Day_3 = GID8KO.Day_3 - WT.Day_3,
   GID9KO.Day_3_vs_WT.Day_3 = GID9KO.Day_3 - WT.Day_3,
+  KOs.Day_3_vs_WT.Day_3 =
+    (GID1KO.Day_3 + GID2KO.Day_3 + GID7KO.Day_3 + GID8KO.Day_3 +
+       GID9KO.Day_3) / 5 - WT.Day_3,
+  KOs_except_GID1.Day_3_vs_WT.Day_3 =
+    (GID2KO.Day_3 + GID7KO.Day_3 + GID8KO.Day_3 + GID9KO.Day_3) / 4 - WT.Day_3,
 
   # Comparisons at Day 6 (cell lines vs. WT)
   GID1KO.Day_6_vs_WT.Day_6 = GID1KO.Day_6 - WT.Day_6,
@@ -1198,6 +164,11 @@ cm <- makeContrasts(
   GID7KO.Day_6_vs_WT.Day_6 = GID7KO.Day_6 - WT.Day_6,
   GID8KO.Day_6_vs_WT.Day_6 = GID8KO.Day_6 - WT.Day_6,
   GID9KO.Day_6_vs_WT.Day_6 = GID9KO.Day_6 - WT.Day_6,
+  KOs.Day_6_vs_WT.Day_6 =
+    (GID1KO.Day_6 + GID2KO.Day_6 + GID7KO.Day_6 + GID8KO.Day_6 +
+       GID9KO.Day_6) / 5 - WT.Day_6,
+  KOs_except_GID1.Day_6_vs_WT.Day_6 =
+    (GID2KO.Day_6 + GID7KO.Day_6 + GID8KO.Day_6 + GID9KO.Day_6) / 4 - WT.Day_6,
 
   # Comparisons at Day 9 (cell lines vs. WT)
   GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
@@ -1205,12 +176,24 @@ cm <- makeContrasts(
   GID7KO.Day_9_vs_WT.Day_9 = GID7KO.Day_9 - WT.Day_9,
   GID8KO.Day_9_vs_WT.Day_9 = GID8KO.Day_9 - WT.Day_9,
   GID9KO.Day_9_vs_WT.Day_9 = GID9KO.Day_9 - WT.Day_9,
+  KOs.Day_9_vs_WT.Day_9 =
+    (GID1KO.Day_9 + GID2KO.Day_9 + GID7KO.Day_9 + GID8KO.Day_9 +
+       GID9KO.Day_9) / 5 - WT.Day_9,
+  KOs_except_GID1.Day_9_vs_WT.Day_9 =
+    (GID2KO.Day_9 + GID7KO.Day_9 + GID8KO.Day_9 + GID9KO.Day_9) / 4 - WT.Day_9,
+
   # Comparisons at Day 12 (cell lines vs. WT)
   GID1KO.Day_12_vs_WT.Day_12 = GID1KO.Day_12 - WT.Day_12,
   GID2KO.Day_12_vs_WT.Day_12 = GID2KO.Day_12 - WT.Day_12,
   GID7KO.Day_12_vs_WT.Day_12 = GID7KO.Day_12 - WT.Day_12,
   GID8KO.Day_12_vs_WT.Day_12 = GID8KO.Day_12 - WT.Day_12,
   GID9KO.Day_12_vs_WT.Day_12 = GID9KO.Day_12 - WT.Day_12,
+  KOs.Day_12_vs_WT.Day_12 =
+    (GID1KO.Day_12 + GID2KO.Day_12 + GID7KO.Day_12 + GID8KO.Day_12 +
+       GID9KO.Day_12) / 5 - WT.Day_12,
+  KOs_except_GID1.Day_12_vs_WT.Day_12 =
+    (GID2KO.Day_12 + GID7KO.Day_12 + GID8KO.Day_12 + GID9KO.Day_12) / 4 -
+    WT.Day_12,
 
   # Interactions (Day6 vs. Day3; cell lines vs. WT)
   `(GID1KO.Day_6_vs_GID1KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
@@ -1223,6 +206,15 @@ cm <- makeContrasts(
     (GID8KO.Day_6 - GID8KO.Day_3) - (WT.Day_6 - WT.Day_3),
   `(GID9KO.Day_6_vs_GID9KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
     (GID9KO.Day_6 - GID9KO.Day_3) - (WT.Day_6 - WT.Day_3),
+  `(KOs.Day_6_vs_KOs.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
+    ((GID1KO.Day_6 - GID1KO.Day_3) + (GID2KO.Day_6 - GID2KO.Day_3) +
+       (GID7KO.Day_6 - GID7KO.Day_3) + (GID8KO.Day_6 - GID8KO.Day_3) +
+       (GID9KO.Day_6 - GID9KO.Day_3)) / 5 -
+    (WT.Day_6 - WT.Day_3),
+  `(KOs_except_GID1.Day_6_vs_KOs_except_GID1.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
+    ((GID2KO.Day_6 - GID2KO.Day_3) + (GID7KO.Day_6 - GID7KO.Day_3) +
+       (GID8KO.Day_6 - GID8KO.Day_3) + (GID9KO.Day_6 - GID9KO.Day_3)) / 4 -
+    (WT.Day_6 - WT.Day_3),
 
   # Interactions (Day9 vs. Day6; cell lines vs. WT)
   `(GID1KO.Day_9_vs_GID1KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
@@ -1235,6 +227,15 @@ cm <- makeContrasts(
     (GID8KO.Day_9 - GID8KO.Day_6) - (WT.Day_9 - WT.Day_6),
   `(GID9KO.Day_9_vs_GID9KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
     (GID9KO.Day_9 - GID9KO.Day_6) - (WT.Day_9 - WT.Day_6),
+  `(KOs.Day_9_vs_KOs.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
+    ((GID1KO.Day_9 - GID1KO.Day_6) + (GID2KO.Day_9 - GID2KO.Day_6) +
+       (GID7KO.Day_9 - GID7KO.Day_6) + (GID8KO.Day_9 - GID8KO.Day_6) +
+       (GID9KO.Day_9 - GID9KO.Day_6)) / 5 -
+    (WT.Day_9 - WT.Day_6),
+  `(KOs_except_GID1.Day_9_vs_KOs_except_GID1.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
+    ((GID2KO.Day_9 - GID2KO.Day_6) + (GID7KO.Day_9 - GID7KO.Day_6) +
+       (GID8KO.Day_9 - GID8KO.Day_6) + (GID9KO.Day_9 - GID9KO.Day_6)) / 4 -
+    (WT.Day_9 - WT.Day_6),
 
   # Interactions (Day12 vs. Day9; cell lines vs. WT)
   `(GID1KO.Day_12_vs_GID1KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
@@ -1247,41 +248,269 @@ cm <- makeContrasts(
     (GID8KO.Day_12 - GID8KO.Day_9) - (WT.Day_12 - WT.Day_9),
   `(GID9KO.Day_12_vs_GID9KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
     (GID9KO.Day_12 - GID9KO.Day_9) - (WT.Day_12 - WT.Day_9),
+  `(KOs.Day_12_vs_KOs.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
+    ((GID1KO.Day_12 - GID1KO.Day_9) + (GID2KO.Day_12 - GID2KO.Day_9) +
+       (GID7KO.Day_12 - GID7KO.Day_9) + (GID8KO.Day_12 - GID8KO.Day_9) +
+       (GID9KO.Day_12 - GID9KO.Day_9)) / 5 -
+    (WT.Day_12 - WT.Day_9),
+  `(KOs_except_GID1.Day_12_vs_KOs_except_GID1.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
+    ((GID2KO.Day_12 - GID2KO.Day_9) + (GID7KO.Day_12 - GID7KO.Day_9) +
+       (GID8KO.Day_12 - GID8KO.Day_9) + (GID9KO.Day_12 - GID9KO.Day_9)) / 4 -
+    (WT.Day_12 - WT.Day_9),
 
-  # TODO: Genes that are DE in an cell line vs. WT at start (Day3) via an F-test?
   levels = design)
-fit <- contrasts.fit(fit, cm)
-fit <- eBayes(fit)
-t(summary(decideTests(fit)))
+cfit <- contrasts.fit(fit, cm)
+cfit <- eBayes(cfit)
 
-y8 <- y
-fit8 <- fit
+t(summary(decideTests(cfit)))
+
+# DEG lists as CSVs
+dir.create(here("output", "DEGs"))
+lapply(colnames(cfit), function(j) {
+  message(j)
+  tt <- topTable(cfit, coef = j, n = Inf, p.value = 1, sort.by = "P")
+  write.csv(
+    flattenDF(
+      tt[, c("GENEID", "Name", "description", "logFC", "AveExpr", "t",
+             "P.Value", "adj.P.Val", "B")]),
+    here("output", "DEGs", paste0(j, ".DEGs.csv")))
+})
+
+# Glimma MA plots
+dir.create(here("output", "Glimma"))
+lapply(colnames(cfit), function(j) {
+  message(j)
+  glimmaMA(
+    x = cfit,
+    dge = y,
+    coef = j,
+    anno = y$genes[, c("GENEID", "Name", "description")],
+    sample.cols = unname(group_colours[y$samples$group]),
+    html = here(
+      "output",
+      "Glimma",
+      paste0(j, ".html")),
+    main = j)
+})
+
+# Heatmaps (perhaps only showing samples involved in contrast?)
+# TODO
+
+# Gene set analysis
+# TODO: Competitive vs. self-contained test
+#       https://support.bioconductor.org/p/107553/.
+
+gaf <- GOSemSim::read.gaf(
+  here("data", "annotation", "PlasmoDB-66_Pfalciparum3D7_GO.gaf.gzip"))
+idx <- ids2indices(
+  split(gaf$TERM2GENE$Gene, gaf$TERM2GENE$GO),
+  id = unlist(cfit$genes$GENEID))
+dir.create(here("output", "CameraGeneSetTests"))
+lapply(colnames(cfit), function(j) {
+  message(j)
+  campr <- cameraPR(statistic = cfit$t[, j], index = idx)
+  campr$GO <- rownames(campr)
+  campr <- dplyr::left_join(campr, gaf$TERM2NAME, by = c("GO" = "GOID"))
+  rownames(campr) <- campr$GO
+  campr <- campr[, c("TERM", "NGenes", "Direction", "PValue", "FDR")]
+  write.csv(
+    campr,
+    here("output", "CameraGeneSetTests", paste0(j, ".camera.csv")))
+})
+
+# NOTE: camera() can't incorporate random effect
+#       (https://support.bioconductor.org/p/78299/)
+cam <- camera(cfit$EList, idx, design, contrast = cm[, j])
+cam$GO <- rownames(cam)
+cam <- dplyr::left_join(cam, gaf$TERM2NAME, by = c("GO" = "GOID"))
+rownames(cam) <- cam$GO
+cam <- cam[, c("TERM", "NGenes", "Direction", "PValue", "FDR")]
+# NOTE: cameraPR() gets around this limitation of camera()
+campr <- cameraPR(cfit$t[, j], idx)
+campr$GO <- rownames(campr)
+campr <- dplyr::left_join(campr, gaf$TERM2NAME, by = c("GO" = "GOID"))
+rownames(campr) <- campr$GO
+campr <- campr[, c("TERM", "NGenes", "Direction", "PValue", "FDR")]
+# NOTE: https://bioconductor.org/packages/release/workflows/vignettes/RNAseq123/inst/doc/limmaWorkflow.html#gene-set-testing-with-camera suggests using
+#       camera() rather than mroast() [or fry()] when doing 'fishing' analyses.
+# f <- fry(cfit$EList, idx, design, contrast = cm[, j])
+# f$GO <- rownames(f)
+# f <- dplyr::left_join(f, gaf$TERM2NAME, by = c("GO" = "GOID"))
+# rownames(f) <- f$GO
+# f <- f[
+#   ,
+#   c("TERM", "NGenes", "Direction", "PValue", "FDR", "PValue.Mixed",
+#     "FDR.Mixed")]
+# NOTE: romer() can't work with voom.
+# rom <- romer(
+#   estimateDisp(y),
+#   idx,
+#   design,
+#   cm[, j],
+#   block = y$samples$cell_line_rep,
+#   correlation = 0.02)
+
+# Multi-level DE analysis: Aggregated KOs vs. WT -------------------------------
+
+g <- factor(
+  sub("GID[1|2|7|8|9]KO", "KO", y$samples$group),
+  c(
+    "KO.Day_3", "KO.Day_6", "KO.Day_9", "KO.Day_12",
+    "WT.Day_3", "WT.Day_6", "WT.Day_9", "WT.Day_12"))
+design_kos <- model.matrix(~0 + g)
+colnames(design_kos) <- sub("g", "", colnames(design))
+
+fit_kos <- voomLmFit(
+  y,
+  design_kos,
+  block = y$samples$cell_line_rep,
+  sample.weights = TRUE,
+  plot = TRUE,
+  keep.EList = TRUE)
+# NOTE: Very low correlation (0.02)
+fit$correlation
+
+cm <- makeContrasts(
+  # Day6 vs. Day3 (within 'cell line')
+  KO.Day_6_vs_KO.Day_3 = KO.Day_6 - KO.Day_3,
+  WT.Day_6_vs_WT.Day_3 = WT.Day_6 - WT.Day_3,
+
+  # Day9 vs. Day6 (within 'cell line')
+  KO.Day_9_vs_KO.Day_6 = KO.Day_9 - KO.Day_6,
+  WT.Day_9_vs_WT.Day_6 = WT.Day_9 - WT.Day_6,
+
+  # Day12 vs. Day9 (within 'cell line')
+  KO.Day_12_vs_KO.Day_9 = KO.Day_12 - KO.Day_9,
+  WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
+
+  # Comparisons at Day 3 (cell lines vs. WT)
+  KO.Day_3_vs_WT.Day_3 = KO.Day_3 - WT.Day_3,
+
+  # Comparisons at Day 6 (cell lines vs. WT)
+  KO.Day_6_vs_WT.Day_6 = KO.Day_6 - WT.Day_6,
+
+  # Comparisons at Day 9 (cell lines vs. WT)
+  KO.Day_9_vs_WT.Day_9 = KO.Day_9 - WT.Day_9,
+
+  # Comparisons at Day 12 (cell lines vs. WT)
+  KO.Day_12_vs_WT.Day_12 = KO.Day_12 - WT.Day_12,
+
+  # Interactions (Day6 vs. Day3; cell lines vs. WT)
+  `(KO.Day_6_vs_KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
+    (KO.Day_6 - KO.Day_3) - (WT.Day_6 - WT.Day_3),
+
+  # Interactions (Day9 vs. Day6; cell lines vs. WT)
+  `(KO.Day_9_vs_KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
+    (KO.Day_9 - KO.Day_6) - (WT.Day_9 - WT.Day_6),
+
+  # Interactions (Day12 vs. Day9; cell lines vs. WT)
+  `(KO.Day_12_vs_KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
+    (KO.Day_12 - KO.Day_9) - (WT.Day_12 - WT.Day_9),
+
+  levels = design)
+cfit <- contrasts.fit(fit, cm)
+cfit <- eBayes(cfit)
+t(summary(decideTests(cfit)))
+
+j <- "KO.Day_12_vs_WT.Day_12"
+glimmaMA(
+  x = cfit,
+  dge = y,
+  coef = j,
+  anno = y$genes[, c("GENEID", "Name", "description")],
+  sample.cols = unname(group_colours[y$samples$group]),
+  # html = here(
+  #   "tmp",
+  #   "Glimma",
+  #   paste0(j, ".html")),
+  main = j)
 
 # Time course analysis ---------------------------------------------------------
 
-# NOTE: Using the results from the
-#       'voomLmFit with quality weights filtering out low-quality replicate'
-#       analysis.
+X <- ns(as.integer(y$samples$timepoint), df = 3)
+Group <- relevel(y$samples$cell_line, "WT")
+design_tc <- model.matrix(~Group * X)
+colnames(design_tc) <- sub("Group", "", colnames(design_tc))
 
-library(splines)
-X <- ns(as.integer(y8$samples$timepoint), df = 3)
-Group <- relevel(y8$samples$cell_line, "WT")
-design <- model.matrix(~Group * X)
-colnames(design) <- sub("Group", "", colnames(design))
-
-fit <- voomLmFit(
-  y8,
-  design,
-  block = y8$samples$cell_line_rep,
+fit_tc <- voomLmFit(
+  y,
+  design_tc,
+  block = y$samples$cell_line_rep,
   sample.weights = TRUE,
   plot = TRUE)
-fit <- eBayes(fit)
+fit_tc <- eBayes(fit_tc)
 
-fit9 <- fit
+tt_gid1 <- topTable(
+  fit_tc,
+  coef = c("GID1KO:X1", "GID1KO:X2", "GID1KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt_gid1)
+tt_gid2 <- topTable(
+  fit_tc,
+  coef = c("GID2KO:X1", "GID2KO:X2", "GID2KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt_gid2)
+tt_gid7 <- topTable(
+  fit_tc,
+  coef = c("GID7KO:X1", "GID7KO:X2", "GID7KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt_gid7)
+tt_gid8 <- topTable(
+  fit_tc,
+  coef = c("GID8KO:X1", "GID8KO:X2", "GID8KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt_gid8)
+tt_gid9 <- topTable(
+  fit_tc,
+  coef = c("GID9KO:X1", "GID9KO:X2", "GID9KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt_gid9)
 
-# TODO: Could also extract genes that change over time within a given cell line
-#       (rather than those that change where there change is different to the
-#       change within WT).
+# TODO: KOs vs. WT?
+# NOTE: This is an ANOVA-like test.
+tt_kos <-  topTable(
+  fit_tc,
+  coef = c(
+    "GID1KO:X1", "GID1KO:X2", "GID1KO:X3",
+    "GID2KO:X1", "GID2KO:X2", "GID2KO:X3",
+    "GID7KO:X1", "GID7KO:X2", "GID7KO:X3",
+    "GID8KO:X1", "GID8KO:X2", "GID8KO:X3",
+    "GID9KO:X1", "GID9KO:X2", "GID9KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt_kos)
+
+# Time course analysis: Aggregated KOs vs. WT ----------------------------------
+
+X <- ns(as.integer(y$samples$timepoint), df = 3)
+Group <- factor(
+  sub("GID[1|2|7|8|9]KO", "KO", y$samples$cell_line),
+  c("WT", "KO"))
+design_tc <- model.matrix(~Group * X)
+colnames(design_tc) <- sub("Group", "", colnames(design_tc))
+
+fit_tc <- voomLmFit(
+  y,
+  design_tc,
+  block = y$samples$cell_line_rep,
+  sample.weights = TRUE,
+  plot = TRUE)
+fit_tc <- eBayes(fit_tc)
+
+tt_ko <- topTable(
+  fit_tc,
+  coef = c("KO:X1", "KO:X2", "KO:X3"),
+  number = Inf,
+  p.value = 0.05)
+nrow(tt_ko)
+
+
+# TODO: KOs_except_GID1 vs. WT
 
 # Outputs to share with Danu ---------------------------------------------------
 
