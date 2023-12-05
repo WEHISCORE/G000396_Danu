@@ -265,13 +265,25 @@ cfit <- eBayes(cfit)
 
 t(summary(decideTests(cfit)))
 
+# TODO: Discuss with Gordon.
+# TODO: UP TO HERE Ways to look for genes where the KOs are all (consistently)
+#       different to the WTs
+# Looking at genes that are different between each KO and WT at Day_3
+coefs <- c("GID1KO.Day_3_vs_WT.Day_3", "GID2KO.Day_3_vs_WT.Day_3",
+           "GID7KO.Day_3_vs_WT.Day_3", "GID8KO.Day_3_vs_WT.Day_3",
+           "GID9KO.Day_3_vs_WT.Day_3")
+# An F-test of whether any one of these contrasts is significant (i.e. an
+# ANOVA-like test).
+nrow(topTable(cfit, coef = coefs, n = Inf, p.value = 0.05))
 
-# TODO: Look at decideTests(method = "nestedF).
-# Looking at genes that are different between each KO and WT at Day_6
-summary(decideTests(cfit[, 26:30], method = "separate"))
-summary(decideTests(cfit[, 26:30], method = "nestedF"))
-nrow(topTable(cfit, coef = 26:30, n = Inf, p.value = 0.05))
-classifyTestsF(cfit[, 26:30])
+# The next 2 give identical results because each contrast is `separate`-ly
+summary(decideTests(cfit[, coefs], method = "separate"))
+summary(decideTests(cfit, method = "separate"))[, coefs]
+
+summary(decideTests(cfit[, coefs], method = "nestedF"))
+
+
+classifyTestsF(cfit[, coefs], p.value = 0.05)
 
 # Outputs of Multi-level DE analysis -------------------------------------------
 
