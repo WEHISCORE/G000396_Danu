@@ -1,6 +1,6 @@
 # DE analysis of mini-bulk data for G000396_Danu
 # Peter Hickey
-# 2023-12-04
+# 2023-12-05
 
 # Setup ------------------------------------------------------------------------
 
@@ -14,6 +14,7 @@ library(ggrepel)
 library(Glimma)
 library(scuttle)
 library(splines)
+library(pheatmap)
 
 # Take a DataFrame with AtomicList columns and return a data.frame where these
 # columns have been flattened by paste-ing together the elements separated by
@@ -264,6 +265,16 @@ cfit <- eBayes(cfit)
 
 t(summary(decideTests(cfit)))
 
+
+# TODO: Look at decideTests(method = "nestedF).
+# Looking at genes that are different between each KO and WT at Day_6
+summary(decideTests(cfit[, 26:30], method = "separate"))
+summary(decideTests(cfit[, 26:30], method = "nestedF"))
+nrow(topTable(cfit, coef = 26:30, n = Inf, p.value = 0.05))
+classifyTestsF(cfit[, 26:30])
+
+# Outputs of Multi-level DE analysis -------------------------------------------
+
 # DEG lists as CSVs
 dir.create(here("output", "DEGs"))
 lapply(colnames(cfit), function(j) {
@@ -293,19 +304,133 @@ lapply(colnames(cfit), function(j) {
     main = j)
 })
 
-# Heatmaps (perhaps only showing samples involved in contrast?)
-# TODO
+# Heatmaps
+lcpm <- edgeR::cpm(y, log = TRUE)
+dir.create(here("tmp", "heatmaps"))
+lapply(colnames(cfit), function(j) {
+  message(j)
 
-# Gene set analysis
-# TODO: Competitive vs. self-contained test
-#       https://support.bioconductor.org/p/107553/.
+  # 1. Samples ordered by `group`.
+  pheatmap(
+    lcpm[
+      rownames(topTable(cfit, coef = j, n = 100, p.value = 0.05)),
+      order(y$samples$group)],
+    scale = "row",
+    color = colorRampPalette(c("blue","white","red"))(100),
+    fontsize_row = 6,
+    fontsize_col = 5,
+    fontsize = 6,
+    annotation_col = y$samples[, "group", drop = FALSE],
+    main = gsub("_vs_", " vs. ", j),
+    annotation_colors = list(group = group_colours),
+    angle_col = 45,
+    treeheight_row = 30,
+    treeheight_col = 30,
+    cluster_cols = FALSE,
+    filename = here("tmp", "heatmaps", paste0(j, ".ordered.pdf")),
+    width = 12,
+    height = 12)
 
+  # 2. Samples clustered by expression pattern.
+  pheatmap(
+    lcpm[rownames(topTable(cfit, coef = j, n = 100, p.value = 0.05)), ],
+    scale = "row",
+    color = colorRampPalette(c("blue","white","red"))(100),
+    fontsize_row = 6,
+    fontsize_col = 5,
+    fontsize = 6,
+    annotation_col = y$samples[, c("timepoint", "cell_line")],
+    main = gsub("_vs_", " vs. ", j),
+    annotation_colors = list(
+      cell_line = cell_line_colours,
+      timepoint = timepoint_colours),
+    angle_col = 45,
+    treeheight_row = 30,
+    treeheight_col = 30,
+    cluster_cols = TRUE,
+    filename = here("tmp", "heatmaps", paste0(j, ".clustered.pdf")),
+    width = 12,
+    height = 12)
+
+  # 3. Samples subsetted to those involved in the comparison and then clustered
+  #    by expression pattern.
+  jj <- y$samples$group %in% names(cm[, j][cm[, j] != 0])
+  pheatmap(
+    lcpm[rownames(topTable(cfit, coef = j, n = 100, p.value = 0.05)), jj],
+    scale = "row",
+    color = colorRampPalette(c("blue","white","red"))(100),
+    fontsize_row = 6,
+    fontsize_col = 5,
+    fontsize = 6,
+    annotation_col = droplevels(y$samples[jj, c("timepoint", "cell_line")]),
+    main = gsub("_vs_", " vs. ", j),
+    annotation_colors = list(
+      cell_line = cell_line_colours[
+        levels(droplevels(y$samples$cell_line[jj]))],
+      timepoint = timepoint_colours[
+        levels(droplevels(y$samples$timepoint[jj]))]),
+    angle_col = 45,
+    treeheight_row = 30,
+    treeheight_col = 30,
+    cluster_cols = TRUE,
+    filename = here(
+      "tmp",
+      "heatmaps",
+      paste0(j, ".clustered.only_relevant_samples.pdf")),
+    width = 12,
+    height = 12)
+})
+
+# Gene set analyses ------------------------------------------------------------
+
+# Load .gaf file with GO annotations.
 gaf <- GOSemSim::read.gaf(
   here("data", "annotation", "PlasmoDB-66_Pfalciparum3D7_GO.gaf.gzip"))
 idx <- ids2indices(
   split(gaf$TERM2GENE$Gene, gaf$TERM2GENE$GO),
   id = unlist(cfit$genes$GENEID))
-dir.create(here("output", "CameraGeneSetTests"))
+gene.pathway <- data.frame(
+  GeneID = gaf$TERM2GENE$Gene,
+  PathwayID = gaf$TERM2GENE$GO)
+pathway.names <- data.frame(
+  PathwayID = gaf$TERM2NAME$GOID,
+  Description = gaf$TERM2NAME$TERM)
+
+# NOTE: kegga() performs over-representation analyses (i.e. hypergeometric
+#       test) of gene lists.
+#       I _think_ it is a competitive test.
+# NOTE: This is a way to hack kegga() to perform goana()-style analysis
+#       for non-supported species (such as plasmodium), which Alex Garnham
+#       showed me on 2023-12-05.
+lapply(colnames(cfit), function(j) {
+  tt <- topTable(cfit, j, n = Inf, p.value = 0.05)
+  keg_up <- kegga.default(
+    de = unlist(tt$GENEID[tt$logFC > 0]),
+    universe = unlist(cfit$genes$GENEID),
+    gene.pathway = gene.pathway,
+    pathway.names = pathway.names)
+  keg_down <- kegga.default(
+    de = unlist(tt$GENEID[tt$logFC < 0]),
+    universe = unlist(cfit$genes$GENEID),
+    gene.pathway = gene.pathway,
+    pathway.names = pathway.names)
+  write.csv(
+    topKEGG(keg_up, p.value = 0.05, n = Inf),
+    here("output", "DEGs", paste0(j, ".upregulated.kegga_with_GO.csv")))
+  write.csv(
+    topKEGG(keg_down, p.value = 0.05, n = Inf),
+    here("output", "DEGs", paste0(j, ".upregulated.kegga_with_GO.csv")))
+
+})
+
+# NOTE: https://bioconductor.org/packages/release/workflows/vignettes/RNAseq123/inst/doc/limmaWorkflow.html#gene-set-testing-with-camera
+#       suggests using camera() rather than mroast() [or fry()] when doing
+#       'fishing' analyses.
+
+# NOTE: camera() is a competitive gene set test that accounts for inter-gene
+#       correlation.
+# NOTE: camera() can't incorporate random effect but cameraPR() can
+#       (https://support.bioconductor.org/p/78299/).
 lapply(colnames(cfit), function(j) {
   message(j)
   campr <- cameraPR(statistic = cfit$t[, j], index = idx)
@@ -315,40 +440,24 @@ lapply(colnames(cfit), function(j) {
   campr <- campr[, c("TERM", "NGenes", "Direction", "PValue", "FDR")]
   write.csv(
     campr,
-    here("output", "CameraGeneSetTests", paste0(j, ".camera.csv")))
+    here("output", "DEGs", paste0(j, ".camera.csv")))
 })
 
-# NOTE: camera() can't incorporate random effect
-#       (https://support.bioconductor.org/p/78299/)
-cam <- camera(cfit$EList, idx, design, contrast = cm[, j])
-cam$GO <- rownames(cam)
-cam <- dplyr::left_join(cam, gaf$TERM2NAME, by = c("GO" = "GOID"))
-rownames(cam) <- cam$GO
-cam <- cam[, c("TERM", "NGenes", "Direction", "PValue", "FDR")]
-# NOTE: cameraPR() gets around this limitation of camera()
-campr <- cameraPR(cfit$t[, j], idx)
-campr$GO <- rownames(campr)
-campr <- dplyr::left_join(campr, gaf$TERM2NAME, by = c("GO" = "GOID"))
-rownames(campr) <- campr$GO
-campr <- campr[, c("TERM", "NGenes", "Direction", "PValue", "FDR")]
-# NOTE: https://bioconductor.org/packages/release/workflows/vignettes/RNAseq123/inst/doc/limmaWorkflow.html#gene-set-testing-with-camera suggests using
-#       camera() rather than mroast() [or fry()] when doing 'fishing' analyses.
-# f <- fry(cfit$EList, idx, design, contrast = cm[, j])
-# f$GO <- rownames(f)
-# f <- dplyr::left_join(f, gaf$TERM2NAME, by = c("GO" = "GOID"))
-# rownames(f) <- f$GO
-# f <- f[
-#   ,
-#   c("TERM", "NGenes", "Direction", "PValue", "FDR", "PValue.Mixed",
-#     "FDR.Mixed")]
-# NOTE: romer() can't work with voom.
-# rom <- romer(
-#   estimateDisp(y),
-#   idx,
-#   design,
-#   cm[, j],
-#   block = y$samples$cell_line_rep,
-#   correlation = 0.02)
+# NOTE: fry() is a self-contained gene set test.
+lapply(colnames(cfit), function(j) {
+  message(j)
+  f <- fry(cfit$EList, idx, design, contrast = cm[, j])
+  f$GO <- rownames(f)
+  f <- dplyr::left_join(f, gaf$TERM2NAME, by = c("GO" = "GOID"))
+  rownames(f) <- f$GO
+  f <- f[
+    ,
+    c("TERM", "NGenes", "Direction", "PValue", "FDR", "PValue.Mixed",
+      "FDR.Mixed")]
+  write.csv(
+    f,
+    here("output", "DEGs", paste0(j, ".fry..csv")))
+})
 
 # Multi-level DE analysis: Aggregated KOs vs. WT -------------------------------
 
