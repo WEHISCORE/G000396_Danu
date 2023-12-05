@@ -318,7 +318,7 @@ lapply(colnames(cfit), function(j) {
 
 # Heatmaps
 lcpm <- edgeR::cpm(y, log = TRUE)
-dir.create(here("tmp", "heatmaps"))
+dir.create(here("output", "heatmaps"))
 lapply(colnames(cfit), function(j) {
   message(j)
 
@@ -339,7 +339,7 @@ lapply(colnames(cfit), function(j) {
     treeheight_row = 30,
     treeheight_col = 30,
     cluster_cols = FALSE,
-    filename = here("tmp", "heatmaps", paste0(j, ".ordered.pdf")),
+    filename = here("output", "heatmaps", paste0(j, ".ordered.pdf")),
     width = 12,
     height = 12)
 
@@ -360,7 +360,7 @@ lapply(colnames(cfit), function(j) {
     treeheight_row = 30,
     treeheight_col = 30,
     cluster_cols = TRUE,
-    filename = here("tmp", "heatmaps", paste0(j, ".clustered.pdf")),
+    filename = here("output", "heatmaps", paste0(j, ".clustered.pdf")),
     width = 12,
     height = 12)
 
@@ -386,7 +386,7 @@ lapply(colnames(cfit), function(j) {
     treeheight_col = 30,
     cluster_cols = TRUE,
     filename = here(
-      "tmp",
+      "output",
       "heatmaps",
       paste0(j, ".clustered.only_relevant_samples.pdf")),
     width = 12,
