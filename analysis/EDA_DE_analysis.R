@@ -459,70 +459,6 @@ lapply(colnames(cfit), function(j) {
     here("output", "DEGs", paste0(j, ".fry..csv")))
 })
 
-# Multi-level DE analysis: Aggregated KOs vs. WT -------------------------------
-
-g <- factor(
-  sub("GID[1|2|7|8|9]KO", "KO", y$samples$group),
-  c(
-    "KO.Day_3", "KO.Day_6", "KO.Day_9", "KO.Day_12",
-    "WT.Day_3", "WT.Day_6", "WT.Day_9", "WT.Day_12"))
-design_kos <- model.matrix(~0 + g)
-colnames(design_kos) <- sub("g", "", colnames(design))
-
-fit_kos <- voomLmFit(
-  y,
-  design_kos,
-  block = y$samples$cell_line_rep,
-  sample.weights = TRUE,
-  plot = TRUE,
-  keep.EList = TRUE)
-# NOTE: Very low correlation (0.02)
-fit$correlation
-
-cm <- makeContrasts(
-  # Day6 vs. Day3 (within 'cell line')
-  KO.Day_6_vs_KO.Day_3 = KO.Day_6 - KO.Day_3,
-  WT.Day_6_vs_WT.Day_3 = WT.Day_6 - WT.Day_3,
-
-  # Day9 vs. Day6 (within 'cell line')
-  KO.Day_9_vs_KO.Day_6 = KO.Day_9 - KO.Day_6,
-  WT.Day_9_vs_WT.Day_6 = WT.Day_9 - WT.Day_6,
-
-  # Day12 vs. Day9 (within 'cell line')
-  KO.Day_12_vs_KO.Day_9 = KO.Day_12 - KO.Day_9,
-  WT.Day_12_vs_WT.Day_9 = WT.Day_12 - WT.Day_9,
-
-  # Comparisons at Day 3 (cell lines vs. WT)
-  KO.Day_3_vs_WT.Day_3 = KO.Day_3 - WT.Day_3,
-
-  # Comparisons at Day 6 (cell lines vs. WT)
-  KO.Day_6_vs_WT.Day_6 = KO.Day_6 - WT.Day_6,
-
-  # Comparisons at Day 9 (cell lines vs. WT)
-  KO.Day_9_vs_WT.Day_9 = KO.Day_9 - WT.Day_9,
-
-  # Comparisons at Day 12 (cell lines vs. WT)
-  KO.Day_12_vs_WT.Day_12 = KO.Day_12 - WT.Day_12,
-
-  # Interactions (Day6 vs. Day3; cell lines vs. WT)
-  `(KO.Day_6_vs_KO.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
-    (KO.Day_6 - KO.Day_3) - (WT.Day_6 - WT.Day_3),
-
-  # Interactions (Day9 vs. Day6; cell lines vs. WT)
-  `(KO.Day_9_vs_KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
-    (KO.Day_9 - KO.Day_6) - (WT.Day_9 - WT.Day_6),
-
-  # Interactions (Day12 vs. Day9; cell lines vs. WT)
-  `(KO.Day_12_vs_KO.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
-    (KO.Day_12 - KO.Day_9) - (WT.Day_12 - WT.Day_9),
-
-  levels = design)
-cfit <- contrasts.fit(fit, cm)
-cfit <- eBayes(cfit)
-t(summary(decideTests(cfit)))
-
-# TODO: Create outputs
-
 # Time course analysis ---------------------------------------------------------
 
 X <- ns(as.integer(y$samples$timepoint), df = 3)
@@ -582,33 +518,5 @@ tt_kos <-  topTable(
   number = Inf,
   p.value = 0.05)
 nrow(tt_kos)
-
-# TODO: Create outputs
-
-# Time course analysis: Aggregated KOs vs. WT ----------------------------------
-
-X <- ns(as.integer(y$samples$timepoint), df = 3)
-Group <- factor(
-  sub("GID[1|2|7|8|9]KO", "KO", y$samples$cell_line),
-  c("WT", "KO"))
-design_tc <- model.matrix(~Group * X)
-colnames(design_tc) <- sub("Group", "", colnames(design_tc))
-
-fit_tc <- voomLmFit(
-  y,
-  design_tc,
-  block = y$samples$cell_line_rep,
-  sample.weights = TRUE,
-  plot = TRUE)
-fit_tc <- eBayes(fit_tc)
-
-tt_ko <- topTable(
-  fit_tc,
-  coef = c("KO:X1", "KO:X2", "KO:X3"),
-  number = Inf,
-  p.value = 0.05)
-nrow(tt_ko)
-
-# TODO: KOs_except_GID1 vs. WT
 
 # TODO: Create outputs
