@@ -431,8 +431,7 @@ lapply(colnames(cfit), function(j) {
     here("output", "DEGs", paste0(j, ".upregulated.kegga_with_GO.csv")))
   write.csv(
     topKEGG(keg_down, p.value = 0.05, n = Inf),
-    here("output", "DEGs", paste0(j, ".upregulated.kegga_with_GO.csv")))
-
+    here("output", "DEGs", paste0(j, ".downregulated.kegga_with_GO.csv")))
 })
 
 # NOTE: https://bioconductor.org/packages/release/workflows/vignettes/RNAseq123/inst/doc/limmaWorkflow.html#gene-set-testing-with-camera
@@ -468,7 +467,7 @@ lapply(colnames(cfit), function(j) {
       "FDR.Mixed")]
   write.csv(
     f,
-    here("output", "DEGs", paste0(j, ".fry..csv")))
+    here("output", "DEGs", paste0(j, ".fry.csv")))
 })
 
 # Time course analysis ---------------------------------------------------------
