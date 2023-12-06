@@ -107,7 +107,8 @@ ggplot(
   theme_cowplot() +
   scale_colour_manual(values = group_colours)
 
-glimmaMDS(y)
+dir.create(here("output", "Glimma"))
+glimmaMDS(y, html = here("output", "Glimma", "overall.MDS.html"))
 
 design <- model.matrix(~0 + group, y$samples)
 colnames(design) <- sub("group", "", colnames(design))
