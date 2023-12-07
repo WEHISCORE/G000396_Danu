@@ -1,6 +1,6 @@
 # DE analysis of mini-bulk data for G000396_Danu
 # Peter Hickey
-# 2023-12-05
+# 2023-12-07
 
 # Setup ------------------------------------------------------------------------
 
@@ -86,6 +86,11 @@ y$samples <- droplevels(y$samples)
 
 # Sum technical replicates
 y <- sumTechReps(y, y$samples$sample)
+
+# Filter out lowly-expressed genes
+keep <- filterByExpr(y, group = y$samples$group)
+summary(keep)
+y <- y[keep, , keep.lib.sizes = FALSE]
 
 # NOTE: No need for TMMwsp because 96% of the counts in the unfiltered count
 #       matrix are non-zero.
