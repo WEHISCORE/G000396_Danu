@@ -269,71 +269,83 @@ cm <- makeContrasts(
 cfit <- contrasts.fit(fit, cm)
 cfit <- eBayes(cfit)
 
-t(summary(decideTests(cfit)))
-
-# Identify genes where the KOs are all (consistently) different to the WTs.
-# Gordon recommended using the average contrast followed by post-hoc filtering
-# of genes based on 'consistent' logFC in the pairwise comparisons.
-for (tp in levels(y$samples$timepoint)) {
-  message(tp)
-  tt <- topTable(
-    cfit,
-    paste0("KOs.", tp, "_vs_WT.", tp),
-    sort.by = "none", n = Inf)
-  message(sum(tt$adj.P.Val < 0.05))
-  tt1 <- topTable(
-    cfit,
-    paste0("GID1KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt2 <- topTable(
-    cfit,
-    paste0("GID2KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt7 <- topTable(
-    cfit,
-    paste0("GID7KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt8 <- topTable(
-    cfit,
-    paste0("GID8KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt9 <- topTable(
-    cfit,
-    paste0("GID9KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt$G1_vs_WT.logFC <- tt1$logFC
-  tt$G2_vs_WT.logFC <- tt2$logFC
-  tt$G7_vs_WT.logFC <- tt7$logFC
-  tt$G8_vs_WT.logFC <- tt8$logFC
-  tt$G9_vs_WT.logFC <- tt9$logFC
-  tt <- tt[order(tt$adj.P.Val), ]
-  tts <- tt[
-    ,
-    c("G1_vs_WT.logFC", "G2_vs_WT.logFC", "G7_vs_WT.logFC", "G8_vs_WT.logFC",
-      "G9_vs_WT.logFC")]
-  message(nrow(tt[tt$adj.P.Val < 0.05 & rowSums(tts > 0) %in% c(0, 5), ]))
-}
-
-# TODO: Also need to do `KOs_except_GID1` vs. WT comparisons
-
 # Outputs of Multi-level DE analysis -------------------------------------------
 
 # DEG lists as CSVs
 dir.create(here("output", "DEGs"))
-lapply(colnames(cfit), function(j) {
+l_deg_summary_df <- lapply(colnames(cfit), function(j) {
   message(j)
-  tt <- topTable(cfit, coef = j, n = Inf, p.value = 1, sort.by = "P")
+  tt <- topTable(cfit, j, number = Inf, sort.by = "none")
+  if (grepl("KOs", j)) {
+    # Add pairwise logFCs to the 'average contrast' to enable post-hoc
+    # filtering of genes based on 'consistent' logFCs in the pairwise
+    # comparisons.
+    if (grepl("except_GID1", j)) {
+      pairwise_coefs <- sapply(
+        setdiff(levels(y$samples$cell_line), c("WT", "GID1KO")),
+        function(cl)  gsub("KOs\\_except\\_GID1", cl, j))
+      n_pairwise <- 4
+    } else {
+      pairwise_coefs <- sapply(
+        setdiff(levels(y$samples$cell_line), "WT"),
+        function(cl)  gsub("KOs", cl, j))
+      n_pairwise <- 5
+    }
+    names(pairwise_coefs) <- paste0(pairwise_coefs, ".logFC")
+    pairwise_lfcCons <- lapply(pairwise_coefs, function(coef) {
+      topTable(cfit, coef = coef, sort.by = "none", n = Inf)$logFC
+    })
+    tt <- cbind(tt, do.call(cbind, pairwise_lfcCons))
+
+    # Summarise the number of DEGs in each comparison.
+    # NOTE: Mimics summary(decideTests(cfit)) value and then repeats with added
+    #       'consistency of pairwise logFCs' constraint (i.e. 'lfcCon'.)
+    deg_summary_df <- data.frame(
+      Down = c(
+        sum(tt$adj.P.Val < 0.05 & tt$logFC < 0),
+        sum(
+          tt$adj.P.Val < 0.05 &
+            tt$logFC < 0 &
+            rowSums(do.call(cbind, pairwise_lfcCons) < 0) == n_pairwise)),
+      NotSig = c(
+        sum(tt$adj.P.Val >= 0.05),
+        sum(
+          tt$adj.P.Val > 0.05 |
+            (tt$adj.P.Val < 0.05 &
+               tt$logFC < 0 &
+               rowSums(do.call(cbind, pairwise_lfcCons) < 0) < n_pairwise) |
+            tt$adj.P.Val < 0.05 &
+            tt$logFC > 0 &
+            rowSums(do.call(cbind, pairwise_lfcCons) > 0) < n_pairwise)),
+      Up = c(
+        sum(tt$adj.P.Val < 0.05 & tt$logFC > 0),
+        sum(
+          tt$adj.P.Val < 0.05 &
+            tt$logFC > 0 &
+            rowSums(do.call(cbind, pairwise_lfcCons) > 0) == n_pairwise)),
+      row.names = c(j, paste0(j, ".lfcCon")))
+  } else {
+    # Summarise the number of DEGs in each comparison
+    # NOTE: Mimics summary(decideTests(cfit)) value.
+    deg_summary_df <- data.frame(
+      Down = sum(tt$adj.P.Val < 0.05 & tt$logFC < 0),
+      NotSig = sum(tt$adj.P.Val >= 0.05 ),
+      Up = sum(tt$adj.P.Val < 0.05 & tt$logFC > 0),
+      row.names = j)
+  }
+
+  # Write topTable results to CSV
   write.csv(
     flattenDF(
-      tt[, c("GENEID", "Name", "description", "logFC", "AveExpr", "t",
-             "P.Value", "adj.P.Val", "B")]),
+      tt[order(tt$adj.P.Val),
+         c("GENEID", "Name", "description", "logFC", "AveExpr", "t",
+           "P.Value", "adj.P.Val", "B")]),
     here("output", "DEGs", paste0(j, ".DEGs.csv")))
+
+  # Summarise the number of DEGs in each comparison
+  return(deg_summary_df)
 })
+do.call(rbind, l_deg_summary_df)
 
 # Glimma MA plots
 dir.create(here("output", "Glimma"))
