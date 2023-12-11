@@ -272,10 +272,8 @@ cfit <- eBayes(cfit)
 t(summary(decideTests(cfit)))
 
 # Identify genes where the KOs are all (consistently) different to the WTs.
-
-# v1: Gordon recommended using the average contrast followed by post-hoc
-#     filtering of genes based on 'consistent' logFC in the pairwise
-#     comparisons.
+# Gordon recommended using the average contrast followed by post-hoc filtering
+# of genes based on 'consistent' logFC in the pairwise comparisons.
 for (tp in levels(y$samples$timepoint)) {
   message(tp)
   tt <- topTable(
@@ -321,65 +319,7 @@ for (tp in levels(y$samples$timepoint)) {
   message(nrow(tt[tt$adj.P.Val < 0.05 & rowSums(tts > 0) %in% c(0, 5), ]))
 }
 
-# v2: Alternatively, applying an F-test with a typical/stringent FDR cutoff
-#     followed by pairwise t-tests with a liberal FDR cutoff and logFC
-#     consistency requirement.
-for (tp in levels(y$samples$timepoint)) {
-  message(tp)
-  tt <- topTable(
-    cfit,
-    coef = c(
-      paste0("GID1KO.", tp, "_vs_WT.", tp),
-      paste0("GID2KO.", tp, "_vs_WT.", tp),
-      paste0("GID7KO.", tp, "_vs_WT.", tp),
-      paste0("GID8KO.", tp, "_vs_WT.", tp),
-      paste0("GID9KO.", tp, "_vs_WT.", tp)),
-    sort.by = "none",
-    n = Inf)
-  message(sum(tt$adj.P.Val < 0.05))
-  tt1 <- topTable(
-    cfit,
-    paste0("GID1KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt2 <- topTable(
-    cfit,
-    paste0("GID2KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt7 <- topTable(
-    cfit,
-    paste0("GID7KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt8 <- topTable(
-    cfit,
-    paste0("GID8KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt9 <- topTable(
-    cfit,
-    paste0("GID9KO.", tp, "_vs_WT.", tp),
-    sort.by = "none",
-    n = Inf)
-  tt$G1_vs_WT.logFC <- tt1$logFC
-  tt$G2_vs_WT.logFC <- tt2$logFC
-  tt$G7_vs_WT.logFC <- tt7$logFC
-  tt$G8_vs_WT.logFC <- tt8$logFC
-  tt$G9_vs_WT.logFC <- tt9$logFC
-  tt <- tt[order(tt$adj.P.Val), ]
-  tts <- tt[
-    ,
-    c("G1_vs_WT.logFC", "G2_vs_WT.logFC", "G7_vs_WT.logFC", "G8_vs_WT.logFC",
-      "G9_vs_WT.logFC")]
-  message(
-    nrow(
-      tt[
-        tt$adj.P.Val < 0.05 &
-          rowSums(tts > 0) %in% c(0, 5) &
-          tt1$adj.P.Val < 0.5 & tt2$adj.P.Val < 0.5 & tt7$adj.P.Val < 0.5 &
-          tt8$adj.P.Val < 0.5 & tt9$adj.P.Val < 0.5, ]))
-}
+# TODO: Also need to do `KOs_except_GID1` vs. WT comparisons
 
 # Outputs of Multi-level DE analysis -------------------------------------------
 
