@@ -342,9 +342,9 @@ l_deg_summary_df <- lapply(colnames(cfit), function(j) {
            "P.Value", "adj.P.Val", "B")]),
     here("output", "DEGs", paste0(j, ".DEGs.csv")))
 
-  # Summarise the number of DEGs in each comparison
   return(deg_summary_df)
 })
+# Summarise the number of DEGs in each comparison
 do.call(rbind, l_deg_summary_df)
 
 # Glimma MA plots
@@ -533,40 +533,41 @@ fit_tc <- voomLmFit(
   plot = TRUE)
 fit_tc <- eBayes(fit_tc)
 
+# Outputs of time-course analysis ----------------------------------------------
+
+# Summarise the number of DEGs in each comparison
 tt_gid1 <- topTable(
   fit_tc,
   coef = c("GID1KO:X1", "GID1KO:X2", "GID1KO:X3"),
   number = Inf,
-  p.value = 0.05)
-nrow(tt_gid1)
+  p.value = 1,
+  sort.by = "F")
 tt_gid2 <- topTable(
   fit_tc,
   coef = c("GID2KO:X1", "GID2KO:X2", "GID2KO:X3"),
   number = Inf,
-  p.value = 0.05)
-nrow(tt_gid2)
+  p.value = 1,
+  sort.by = "F")
 tt_gid7 <- topTable(
   fit_tc,
   coef = c("GID7KO:X1", "GID7KO:X2", "GID7KO:X3"),
   number = Inf,
-  p.value = 0.05)
-nrow(tt_gid7)
+  p.value = 1,
+  sort.by = "F")
 tt_gid8 <- topTable(
   fit_tc,
   coef = c("GID8KO:X1", "GID8KO:X2", "GID8KO:X3"),
   number = Inf,
-  p.value = 0.05)
-nrow(tt_gid8)
+  p.value = 1,
+  sort.by = "F")
 tt_gid9 <- topTable(
   fit_tc,
   coef = c("GID9KO:X1", "GID9KO:X2", "GID9KO:X3"),
   number = Inf,
-  p.value = 0.05)
-nrow(tt_gid9)
-
-# TODO: KOs vs. WT?
+  p.value = 1,
+  sort.by = "F")
 # NOTE: This is an ANOVA-like test.
-tt_kos <-  topTable(
+tt_any_ko <-  topTable(
   fit_tc,
   coef = c(
     "GID1KO:X1", "GID1KO:X2", "GID1KO:X3",
@@ -575,7 +576,49 @@ tt_kos <-  topTable(
     "GID8KO:X1", "GID8KO:X2", "GID8KO:X3",
     "GID9KO:X1", "GID9KO:X2", "GID9KO:X3"),
   number = Inf,
-  p.value = 0.05)
-nrow(tt_kos)
+  p.value = 1,
+  sort.by = "F")
+data.frame(
+  Sig = c(
+    sum(tt_gid1$adj.P.Val < 0.05),
+    sum(tt_gid2$adj.P.Val < 0.05),
+    sum(tt_gid7$adj.P.Val < 0.05),
+    sum(tt_gid8$adj.P.Val < 0.05),
+    sum(tt_gid9$adj.P.Val < 0.05),
+    sum(tt_any_ko$adj.P.Val < 0.05)),
+  NotSig = c(
+    sum(tt_gid1$adj.P.Val >= 0.05),
+    sum(tt_gid2$adj.P.Val >= 0.05),
+    sum(tt_gid7$adj.P.Val >= 0.05),
+    sum(tt_gid8$adj.P.Val >= 0.05),
+    sum(tt_gid9$adj.P.Val >= 0.05),
+    sum(tt_any_ko$adj.P.Val >= 0.05)),
+  row.names = c(
+    "GID1KO_vs_WT", "GID2KO_vs_WT", "GID7KO_vs_WT",
+    "GID8KO_vs_WT", "GID9KO_vs_WT", "any_KO_vs_WT"))
 
-# TODO: Create outputs
+lcpm <- cpm(y, log = TRUE)
+dir.create(here("output", "timecourse"))
+pdf(here("output", "timecourse", "any_KO_vs_WT.pdf"), width = 9, height = 3)
+for (g in rownames(tt_any_ko)[tt_any_ko$adj.P.Val < 0.05]) {
+  message(g)
+  p <- ggplot(
+    data = cbind(data.frame(lcpm = lcpm[g, ]), y$samples),
+    mapping = aes(x = timepoint, y = lcpm, group = cell_line_rep)) +
+    geom_smooth(
+      aes(x = timepoint, y = lcpm, group = cell_line, colour = cell_line),
+      se = FALSE,
+      lwd = 2) +
+    scale_colour_manual(values = cell_line_colours) +
+    geom_point(aes(fill = group, colour = cell_line), shape = 21, size = 2) +
+    scale_fill_manual(values = group_colours) +
+    geom_line(aes(colour = cell_line), alpha = 0.5, lty = 2) +
+    facet_grid(~cell_line) +
+    ggtitle(g) +
+    guides(colour = "none", fill = "none") +
+    theme_cowplot() +
+    panel_border() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+  print(p)
+}
+dev.off()
