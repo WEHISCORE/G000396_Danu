@@ -23,7 +23,7 @@ tt <- topTable(
   p.value = 0.05)
 nrow(tt)
 
-# This do t-test rather than F-test, so no good
+# This does a t-test rather than F-test, so no good
 # fit <- contrasts.fit(
 #   fit0,
 #   coef = match(c("GID1KO:X1", "GID1KO:X2", "GID1KO:X3"), colnames(fit0)))
