@@ -1,6 +1,6 @@
 # DE analysis of mini-bulk data for G000396_Danu
 # Peter Hickey
-# 2023-12-12
+# 2024-02-01
 
 # Setup ------------------------------------------------------------------------
 
@@ -67,15 +67,12 @@ group_colours <- setNames(
     ),
   levels(sce$group))
 
-# Multi-level DE analysis ------------------------------------------------------
-
-# NOTE: Using voomLmFit with quality weights after filtering out low-quality
-#       replicates
+# Setup DGEList object, filter, and normalize ----------------------------------
 
 y <- SE2DGEList(sce)
 
 # Subset to relevant samples
-# NOTE: Not using criteria from preprocessing Rmd because it is stricter than
+# NOTE: Not using criteria from preprocessing.Rmd because it is stricter than
 #       I want/need for DE analysis. Here, I really just want to remove those
 #       libraries with crap library size.
 libsize_drop <- isOutlier(colSums(y$counts), type = "lower", log = TRUE)
@@ -112,8 +109,90 @@ ggplot(
   theme_cowplot() +
   scale_colour_manual(values = group_colours)
 
+# MDS plots --------------------------------------------------------------------
+
+dir.create(here("output", "MDS"))
 dir.create(here("output", "Glimma"))
+
+# Original data
+# Static plots
+pdf(here("output", "MDS", "MDS.pdf"), width = 7, height = 7)
+par(mfrow = c(1, 1))
+plotMDS(
+  y,
+  col = timepoint_colours[y$samples$timepoint],
+  main = "Overall\nColoured by timepoint")
+plotMDS(
+  y,
+  col = cell_line_colours[y$samples$cell_line],
+  main = "Overall\nColoured by cell line")
+plotMDS(
+  y[, y$samples$timepoint == "Day_3"],
+  col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_3"]],
+  main = "Day 3\nColoured by cell line")
+plotMDS(
+  y[, y$samples$timepoint == "Day_6"],
+  col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_6"]],
+  main = "Day 6\nColoured by cell line")
+plotMDS(
+  y[, y$samples$timepoint == "Day_9"],
+  col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_9"]],
+  main = "Day 9\nColoured by cell line")
+plotMDS(
+  y[, y$samples$timepoint == "Day_12"],
+  col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_12"]],
+  main = "Day 12\nColoured by cell line")
+dev.off()
+# Interactive
 glimmaMDS(y, html = here("output", "Glimma", "overall.MDS.html"))
+glimmaMDS(
+  y[, y$samples$timepoint == "Day_3"],
+  html = here("output", "Glimma", "Day_3.MDS.html"))
+glimmaMDS(
+  y[, y$samples$timepoint == "Day_6"],
+  html = here("output", "Glimma", "Day_6.MDS.html"))
+glimmaMDS(
+  y[, y$samples$timepoint == "Day_9"],
+  html = here("output", "Glimma", "Day_9.MDS.html"))
+glimmaMDS(
+  y[, y$samples$timepoint == "Day_12"],
+  html = here("output", "Glimma", "Day_12.MDS.html"))
+
+# Adjusting for timepoint
+# NOTE: Some evidence in this plot for the claim that "GIKO cell lines seem to
+#       arrest (compared to WT) somewhere between day 6 and 9" in that all
+#       the samples cluster together except for the WT.Day_9 and WT.Day_12
+#       samples.
+y_adj <- removeBatchEffect(
+  voom(y),
+  batch = y$samples$timepoint,
+  group = y$samples$cell_line)
+# Static plots
+pdf(
+  here("output", "MDS", "MDS.adjusted_for_timepoint.pdf"),
+  width = 7,
+  height = 7)
+par(mfrow = c(1, 1))
+plotMDS(
+  y_adj,
+  col = timepoint_colours[y$samples$timepoint],
+  main = "Overall adjusted for timepoint\nColoured by timepoint")
+plotMDS(
+  y_adj,
+  col = cell_line_colours[y$samples$cell_line],
+  main = "Overall adjusted for timepoint\nColoured by cell_line")
+dev.off()
+# Interactive plots
+glimmaMDS(
+  y_adj,
+  groups = y$samples,
+  labels = rownames(y$samples),
+  html = here("output", "Glimma", "overall_adjusted_for_Day.MDS.html"))
+
+# Multi-level DE analysis ------------------------------------------------------
+
+# NOTE: Using voomLmFit with quality weights after filtering out low-quality
+#       replicates
 
 design <- model.matrix(~0 + group, y$samples)
 colnames(design) <- sub("group", "", colnames(design))
