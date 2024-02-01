@@ -42,7 +42,8 @@ counts(sce) <- assay(sce, "read_counts")
 cd <- colData(sce)
 colData(sce) <- cd[
   ,
-  c("cell_line", "timepoint", "biological_replicate", "technical_replicate", "sample", "group", "cell_line_rep")]
+  c("cell_line", "timepoint", "biological_replicate", "technical_replicate",
+    "sample", "group", "cell_line_rep")]
 
 # Some useful colours
 # NOTE: First 5 colours are based on Set1
@@ -58,13 +59,13 @@ timepoint_colours <- setNames(
   levels(sce$timepoint))
 group_colours <- setNames(
   unlist(
-      lapply(
-        cell_line_colours[1:6],
-        function(x) {
-          unlist(lapply(x, colorspace::lighten, amount = seq(0, 0.75, 0.25)))
-        }
-      )
-    ),
+    lapply(
+      cell_line_colours[1:6],
+      function(x) {
+        unlist(lapply(x, colorspace::lighten, amount = seq(0, 0.75, 0.25)))
+      }
+    )
+  ),
   levels(sce$group))
 
 # Setup DGEList object, filter, and normalize ----------------------------------
@@ -157,6 +158,13 @@ glimmaMDS(
 glimmaMDS(
   y[, y$samples$timepoint == "Day_12"],
   html = here("output", "Glimma", "Day_12.MDS.html"))
+# NOTE: Don't actually require Glimma's '_files' directory, which contains
+#       .js and .css files, because Glimma actually generates standalone HTML
+#       files. Unfortunately, we have to do this clean up
+#       manually (at least for now; see
+#       https://github.com/hasaru-k/GlimmaV2/issues/84).
+unlink(list.dirs(here("output", "Glimma"), recursive = FALSE), recursive = TRUE)
+
 
 # Adjusting for timepoint
 # NOTE: Some evidence in this plot for the claim that "GIKO cell lines seem to
@@ -188,6 +196,12 @@ glimmaMDS(
   groups = y$samples,
   labels = rownames(y$samples),
   html = here("output", "Glimma", "overall_adjusted_for_Day.MDS.html"))
+# NOTE: Don't actually require Glimma's '_files' directory, which contains
+#       .js and .css files, because Glimma actually generates standalone HTML
+#       files. Unfortunately, we have to do this clean up
+#       manually (at least for now; see
+#       https://github.com/hasaru-k/GlimmaV2/issues/84).
+unlink(list.dirs(here("output", "Glimma"), recursive = FALSE), recursive = TRUE)
 
 # Multi-level DE analysis ------------------------------------------------------
 
@@ -442,6 +456,12 @@ lapply(colnames(cfit), function(j) {
       paste0(j, ".html")),
     main = j)
 })
+# NOTE: Don't actually require Glimma's '_files' directory, which contains
+#       .js and .css files, because Glimma actually generates standalone HTML
+#       files. Unfortunately, we have to do this clean up
+#       manually (at least for now; see
+#       https://github.com/hasaru-k/GlimmaV2/issues/84).
+unlink(list.dirs(here("output", "Glimma"), recursive = FALSE), recursive = TRUE)
 
 # Heatmaps
 lcpm <- edgeR::cpm(y, log = TRUE)
@@ -676,6 +696,7 @@ data.frame(
     "GID1KO_vs_WT", "GID2KO_vs_WT", "GID7KO_vs_WT",
     "GID8KO_vs_WT", "GID9KO_vs_WT", "any_KO_vs_WT"))
 
+# Plots
 lcpm <- cpm(y, log = TRUE)
 dir.create(here("output", "timecourse"))
 pdf(here("output", "timecourse", "any_KO_vs_WT.pdf"), width = 9, height = 3)
@@ -701,3 +722,192 @@ for (g in rownames(tt_any_ko)[tt_any_ko$adj.P.Val < 0.05]) {
   print(p)
 }
 dev.off()
+
+# TODO: cutree_rows = ?
+# TODO: More stringent FDR cutoff for gene selection?
+timeCourseHeatmaps <- function(tt, n, cutree_rows = 6, FDR = 0.05) {
+  g <- rownames(tt[tt$adj.P.Val < FDR, ])
+
+  # 1. Samples ordered by `group`.
+  hm <- pheatmap(
+    lcpm[g, order(y$samples$group)],
+    scale = "row",
+    color = colorRampPalette(c("blue","white","red"))(100),
+    fontsize_row = 6,
+    fontsize_col = 5,
+    fontsize = 6,
+    annotation_col = y$samples[, "group", drop = FALSE],
+    main = "GID1KO vs WT",
+    annotation_colors = list(group = group_colours),
+    angle_col = 45,
+    treeheight_row = 30,
+    treeheight_col = 30,
+    cluster_cols = FALSE,
+    width = 12,
+    height = 12,
+    cutree_rows = cutree_rows,
+    show_rownames = FALSE,
+    silent = TRUE)
+  gc <- cutree(hm$tree_row, k = cutree_rows)
+  cluster_colours <- setNames(
+    palette.colors(cutree_rows, "Okabe-Ito"),
+    seq_len(cutree_rows))
+  pheatmap(
+    lcpm[g, order(y$samples$group)],
+    scale = "row",
+    color = colorRampPalette(c("blue","white","red"))(100),
+    fontsize_row = 6,
+    fontsize_col = 5,
+    fontsize = 6,
+    annotation_col = y$samples[, "group", drop = FALSE],
+    main = "GID1KO vs WT",
+    annotation_colors = list(group = group_colours, cluster = cluster_colours),
+    angle_col = 45,
+    treeheight_row = 30,
+    treeheight_col = 30,
+    cluster_cols = FALSE,
+    filename = here(
+      "output",
+      "timecourse",
+      paste0(n, ".time_course_heatmap.samples_ordered.pdf")),
+    width = 12,
+    height = 12,
+    cutree_rows = 6,
+    show_rownames = FALSE,
+    annotation_row = data.frame(cluster = factor(gc), row.names = names(gc)))
+
+  # 2. Samples clustered by expression pattern.
+  pheatmap(
+    lcpm[g, ],
+    scale = "row",
+    color = colorRampPalette(c("blue","white","red"))(100),
+    fontsize_row = 6,
+    fontsize_col = 5,
+    fontsize = 6,
+    annotation_col = y$samples[, c("timepoint", "cell_line")],
+    main = "GID1KO vs WT",
+    annotation_colors = list(
+      cell_line = cell_line_colours,
+      timepoint = timepoint_colours,
+      cluster = cluster_colours),
+    angle_col = 45,
+    treeheight_row = 30,
+    treeheight_col = 30,
+    cluster_cols = TRUE,
+    filename = here(
+      "output",
+      "timecourse",
+      paste0(n, ".time_course_heatmap.samples_clustered.pdf")),
+    width = 12,
+    height = 12,
+    cutree_rows = 6,
+    show_rownames = FALSE,
+    annotation_row = data.frame(cluster = factor(gc), row.names = names(gc)))
+
+  # 3. Samples subsetted to those involved in the comparison and then ordered
+  #    by `group`.
+  if (n != "any_KO_vs_WT") {
+    cts <- strsplit(n, "_")[[1]][c(1, 3)]
+    jj <- y$samples$cell_line %in% cts
+    hm2 <- pheatmap(
+      lcpm[g, jj][, order(y$samples$group[jj])],
+      scale = "row",
+      color = colorRampPalette(c("blue","white","red"))(100),
+      fontsize_row = 6,
+      fontsize_col = 5,
+      fontsize = 6,
+      annotation_col = droplevels(y$samples[jj, c("timepoint", "cell_line")]),
+      main = gsub("\\_vs\\_", " vs. ", n),
+      annotation_colors = list(
+        cell_line = cell_line_colours[
+          levels(droplevels(y$samples$cell_line[jj]))],
+        timepoint = timepoint_colours[
+          levels(droplevels(y$samples$timepoint[jj]))],
+        cluster = gc2_colours),
+      angle_col = 45,
+      treeheight_row = 30,
+      treeheight_col = 30,
+      cluster_cols = FALSE,
+      width = 12,
+      height = 12,
+      cutree_rows = 6,
+      show_rownames = FALSE,
+      silent = TRUE)
+    gc2 <- cutree(hm2$tree_row, k = cutree_rows)
+    gc2_colours <- setNames(
+      palette.colors(cutree_rows, "Dark2"),
+      seq_len(cutree_rows))
+    pheatmap(
+      lcpm[g, jj][, order(y$samples$group[jj])],
+      scale = "row",
+      color = colorRampPalette(c("blue","white","red"))(100),
+      fontsize_row = 6,
+      fontsize_col = 5,
+      fontsize = 6,
+      annotation_col = droplevels(y$samples[jj, c("timepoint", "cell_line")]),
+      main = gsub("\\_vs\\_", " vs. ", n),
+      annotation_colors = list(
+        cell_line = cell_line_colours[
+          levels(droplevels(y$samples$cell_line[jj]))],
+        timepoint = timepoint_colours[
+          levels(droplevels(y$samples$timepoint[jj]))],
+        cluster2 = gc2_colours),
+      angle_col = 45,
+      treeheight_row = 30,
+      treeheight_col = 30,
+      cluster_cols = FALSE,
+      filename = here(
+        "output",
+        "timecourse",
+        paste0(
+          n,
+          ".time_course_heatmap.samples_ordered.only_relevant_samples.pdf")),
+      width = 12,
+      height = 12,
+      cutree_rows = 6,
+      show_rownames = FALSE,
+      annotation_row = data.frame(cluster2 = factor(gc2), row.names = names(gc2)))
+
+    val <- list(gc = gc, gc2 = gc2)
+  } else {
+    val <- list(gc = gc)
+  }
+  val
+}
+gcs_gid1 <- timeCourseHeatmaps(tt_gid1, "GID1KO_vs_WT")
+gcs_gid2 <- timeCourseHeatmaps(tt_gid2, "GID2KO_vs_WT")
+gcs_gid7 <- timeCourseHeatmaps(tt_gid7, "GID7KO_vs_WT")
+gcs_gid8 <- timeCourseHeatmaps(tt_gid8, "GID8KO_vs_WT")
+gcs_gid9 <- timeCourseHeatmaps(tt_gid9, "GID9KO_vs_WT")
+gcs_any_ko <- timeCourseHeatmaps(tt_any_ko, "any_KO_vs_WT")
+
+# Gene set analyses
+timeCourseGO <- function(gc) {
+  val <- lapply(sort(unique(gc)), function(cl) {
+    kegga.default(
+      de = names(gc[gc == cl]),
+      universe = unlist(fit_tc$genes$GENEID),
+      gene.pathway = gene.pathway,
+      pathway.names = pathway.names)
+  })
+  names(val) <- sort(unique(gc))
+  val
+}
+# TODO: gc or gc2?
+l_of_keg_gid1 <- timeCourseGO(gcs_gid1$gc2)
+l_of_keg_gid2 <- timeCourseGO(gcs_gid2$gc2)
+l_of_keg_gid7 <- timeCourseGO(gcs_gid7$gc2)
+l_of_keg_gid8 <- timeCourseGO(gcs_gid8$gc2)
+l_of_keg_gid9 <- timeCourseGO(gcs_gid9$gc2)
+l_of_keg_any_ko <- timeCourseGO(gcs_any_ko$gc)
+
+# An example of results
+topKEGG(l_of_keg_any_ko[[1]], n = 5)
+# TODO: Make CSVs of GO results; need to settle on a few other decisions (e.g,
+#       clustering algorithm and number of clusters of gene patterns) before
+#       its worth generating these.
+
+# TODOs ------------------------------------------------------------------------
+
+# - [ ] Is it possible to re-arrange the row dendograms (timecourse stuff) to
+#       have the groups in the same order as the legend?
