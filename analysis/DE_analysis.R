@@ -165,7 +165,6 @@ glimmaMDS(
 #       https://github.com/hasaru-k/GlimmaV2/issues/84).
 unlink(list.dirs(here("output", "Glimma"), recursive = FALSE), recursive = TRUE)
 
-
 # Adjusting for timepoint
 # NOTE: Some evidence in this plot for the claim that "GIKO cell lines seem to
 #       arrest (compared to WT) somewhere between day 6 and 9" in that all
@@ -632,7 +631,7 @@ fit_tc <- voomLmFit(
   plot = TRUE)
 fit_tc <- eBayes(fit_tc)
 
-# Outputs of time-course analysis ----------------------------------------------
+# Outputs of time course analysis ----------------------------------------------
 
 # Summarise the number of DEGs in each comparison
 tt_gid1 <- topTable(
@@ -749,7 +748,7 @@ timeCourseHeatmaps <- function(tt, n, cutree_rows = 6, FDR = 0.05) {
     show_rownames = FALSE,
     silent = TRUE)
   gc <- cutree(hm$tree_row, k = cutree_rows)
-  cluster_colours <- setNames(
+  gc_colours <- setNames(
     palette.colors(cutree_rows, "Okabe-Ito"),
     seq_len(cutree_rows))
   pheatmap(
@@ -761,7 +760,7 @@ timeCourseHeatmaps <- function(tt, n, cutree_rows = 6, FDR = 0.05) {
     fontsize = 6,
     annotation_col = y$samples[, "group", drop = FALSE],
     main = "GID1KO vs WT",
-    annotation_colors = list(group = group_colours, cluster = cluster_colours),
+    annotation_colors = list(group = group_colours, cluster = gc_colours),
     angle_col = 45,
     treeheight_row = 30,
     treeheight_col = 30,
@@ -789,7 +788,7 @@ timeCourseHeatmaps <- function(tt, n, cutree_rows = 6, FDR = 0.05) {
     annotation_colors = list(
       cell_line = cell_line_colours,
       timepoint = timepoint_colours,
-      cluster = cluster_colours),
+      cluster = gc_colours),
     angle_col = 45,
     treeheight_row = 30,
     treeheight_col = 30,
@@ -818,12 +817,6 @@ timeCourseHeatmaps <- function(tt, n, cutree_rows = 6, FDR = 0.05) {
       fontsize = 6,
       annotation_col = droplevels(y$samples[jj, c("timepoint", "cell_line")]),
       main = gsub("\\_vs\\_", " vs. ", n),
-      annotation_colors = list(
-        cell_line = cell_line_colours[
-          levels(droplevels(y$samples$cell_line[jj]))],
-        timepoint = timepoint_colours[
-          levels(droplevels(y$samples$timepoint[jj]))],
-        cluster = gc2_colours),
       angle_col = 45,
       treeheight_row = 30,
       treeheight_col = 30,
@@ -866,7 +859,9 @@ timeCourseHeatmaps <- function(tt, n, cutree_rows = 6, FDR = 0.05) {
       height = 12,
       cutree_rows = 6,
       show_rownames = FALSE,
-      annotation_row = data.frame(cluster2 = factor(gc2), row.names = names(gc2)))
+      annotation_row = data.frame(
+        cluster2 = factor(gc2),
+        row.names = names(gc2)))
 
     val <- list(gc = gc, gc2 = gc2)
   } else {
@@ -881,7 +876,9 @@ gcs_gid8 <- timeCourseHeatmaps(tt_gid8, "GID8KO_vs_WT")
 gcs_gid9 <- timeCourseHeatmaps(tt_gid9, "GID9KO_vs_WT")
 gcs_any_ko <- timeCourseHeatmaps(tt_any_ko, "any_KO_vs_WT")
 
-# Gene set analyses
+# Gene set analyses of timecourse data -----------------------------------------
+
+# NOTE: Relies on output of timeCourseHeatmaps()
 timeCourseGO <- function(gc) {
   val <- lapply(sort(unique(gc)), function(cl) {
     kegga.default(
