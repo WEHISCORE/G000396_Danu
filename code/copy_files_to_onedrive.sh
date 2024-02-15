@@ -16,7 +16,7 @@ rclone mkdir ${REMOTE}:${REMOTE_PATH}
 
 # Copy directories and their contents from local to remote ---------------------
 
-DIRS=( DEGs Glimma heatmaps MDS scPipe timecourse )
+DIRS=( DEGs Glimma Guerreiro heatmaps Lasonder MDS scPipe timecourse )
 for DIR in "${DIRS[@]}"
 do
   echo "Copying ${DIR}"
