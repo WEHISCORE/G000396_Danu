@@ -1,6 +1,6 @@
 # DE analysis of mini-bulk data for G000396_Danu
 # Peter Hickey
-# 2024-02-01
+# 2024-02-15
 
 # Setup ------------------------------------------------------------------------
 
@@ -68,6 +68,9 @@ group_colours <- setNames(
   ),
   levels(sce$group))
 
+# Some useful shapes
+cell_line_shapes <- setNames(c(21:25, 1), levels(sce$cell_line))
+
 # Setup DGEList object, filter, and normalize ----------------------------------
 
 y <- SE2DGEList(sce)
@@ -117,33 +120,152 @@ dir.create(here("output", "Glimma"))
 
 # Original data
 # Static plots
-pdf(here("output", "MDS", "MDS.pdf"), width = 7, height = 7)
+dev.off()
+pdf(here("output", "MDS", "MDS.pdf"), width = 8, height = 7)
 par(mfrow = c(1, 1))
-plotMDS(
+mds <- plotMDS(
   y,
   col = timepoint_colours[y$samples$timepoint],
   main = "Overall\nColoured by timepoint")
-plotMDS(
-  y,
-  col = cell_line_colours[y$samples$cell_line],
-  main = "Overall\nColoured by cell line")
-plotMDS(
+mds_df <- cbind(
+  data.frame(x = mds$x, y = mds$y),
+  y$samples)
+p <- ggplot(mds_df, aes(x = x, y = y)) +
+  geom_point(
+    aes(colour = timepoint, fill = timepoint, shape = cell_line),
+    size = 4) +
+  xlab(
+    paste0(
+      "Leading logFC dim 1 (",
+      round(100 * mds$var.explained[1], 0),
+      "%)")) +
+  ylab(
+    paste0(
+      "Leading logFC dim 2 (",
+      round(100 * mds$var.explained[2], 0),
+      "%)")) +
+  ggtitle("Overall") +
+  scale_colour_manual(values = timepoint_colours) +
+  scale_fill_manual(values = timepoint_colours) +
+  scale_shape_manual(values = cell_line_shapes) +
+  guides(shape = guide_legend(
+    override.aes = list(shape = cell_line_shapes, fill = "darkgrey"))) +
+  theme_bw()
+print(p)
+
+mds <- plotMDS(
   y[, y$samples$timepoint == "Day_3"],
   col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_3"]],
   main = "Day 3\nColoured by cell line")
-plotMDS(
+mds_df <- cbind(
+  data.frame(x = mds$x, y = mds$y),
+  y$samples[y$samples$timepoint == "Day_3", ])
+p <- ggplot(mds_df, aes(x = x, y = y)) +
+  geom_point(
+    aes(colour = cell_line, fill = cell_line, shape = cell_line),
+    size = 4) +
+  xlab(
+    paste0(
+      "Leading logFC dim 1 (",
+      round(100 * mds$var.explained[1], 0),
+      "%)")) +
+  ylab(
+    paste0(
+      "Leading logFC dim 2 (",
+      round(100 * mds$var.explained[2], 0),
+      "%)")) +
+  ggtitle("Day 3") +
+  scale_colour_manual(values = cell_line_colours) +
+  scale_fill_manual(values = cell_line_colours) +
+  scale_shape_manual(values = cell_line_shapes) +
+  theme_bw()
+print(p)
+
+mds <- plotMDS(
   y[, y$samples$timepoint == "Day_6"],
   col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_6"]],
   main = "Day 6\nColoured by cell line")
-plotMDS(
+mds_df <- cbind(
+  data.frame(x = mds$x, y = mds$y),
+  y$samples[y$samples$timepoint == "Day_6", ])
+p <- ggplot(mds_df, aes(x = x, y = y)) +
+  geom_point(
+    aes(colour = cell_line, fill = cell_line, shape = cell_line),
+    size = 4) +
+  xlab(
+    paste0(
+      "Leading logFC dim 1 (",
+      round(100 * mds$var.explained[1], 0),
+      "%)")) +
+  ylab(
+    paste0(
+      "Leading logFC dim 2 (",
+      round(100 * mds$var.explained[2], 0),
+      "%)")) +
+  ggtitle("Day 6") +
+  scale_colour_manual(values = cell_line_colours) +
+  scale_fill_manual(values = cell_line_colours) +
+  scale_shape_manual(values = cell_line_shapes) +
+  theme_bw()
+print(p)
+
+mds <- plotMDS(
   y[, y$samples$timepoint == "Day_9"],
   col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_9"]],
   main = "Day 9\nColoured by cell line")
-plotMDS(
+mds_df <- cbind(
+  data.frame(x = mds$x, y = mds$y),
+  y$samples[y$samples$timepoint == "Day_9", ])
+p <- ggplot(mds_df, aes(x = x, y = y)) +
+  geom_point(
+    aes(colour = cell_line, fill = cell_line, shape = cell_line),
+    size = 4) +
+  xlab(
+    paste0(
+      "Leading logFC dim 1 (",
+      round(100 * mds$var.explained[1], 0),
+      "%)")) +
+  ylab(
+    paste0(
+      "Leading logFC dim 2 (",
+      round(100 * mds$var.explained[2], 0),
+      "%)")) +
+  ggtitle("Day 9") +
+  scale_colour_manual(values = cell_line_colours) +
+  scale_fill_manual(values = cell_line_colours) +
+  scale_shape_manual(values = cell_line_shapes) +
+  theme_bw()
+print(p)
+
+mds <- plotMDS(
   y[, y$samples$timepoint == "Day_12"],
   col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_12"]],
   main = "Day 12\nColoured by cell line")
+mds_df <- cbind(
+  data.frame(x = mds$x, y = mds$y),
+  y$samples[y$samples$timepoint == "Day_12", ])
+p <- ggplot(mds_df, aes(x = x, y = y)) +
+  geom_point(
+    aes(colour = cell_line, fill = cell_line, shape = cell_line),
+    size = 4) +
+  xlab(
+    paste0(
+      "Leading logFC dim 1 (",
+      round(100 * mds$var.explained[1], 0),
+      "%)")) +
+  ylab(
+    paste0(
+      "Leading logFC dim 2 (",
+      round(100 * mds$var.explained[2], 0),
+      "%)")) +
+  ggtitle("Day 12") +
+  scale_colour_manual(values = cell_line_colours) +
+  scale_fill_manual(values = cell_line_colours) +
+  scale_shape_manual(values = cell_line_shapes) +
+  theme_bw()
+print(p)
 dev.off()
+
 # Interactive
 glimmaMDS(y, html = here("output", "Glimma", "overall.MDS.html"))
 glimmaMDS(
@@ -177,18 +299,44 @@ y_adj <- removeBatchEffect(
 # Static plots
 pdf(
   here("output", "MDS", "MDS.adjusted_for_timepoint.pdf"),
-  width = 7,
+  width = 8,
   height = 7)
 par(mfrow = c(1, 1))
-plotMDS(
+mds <- plotMDS(
   y_adj,
   col = timepoint_colours[y$samples$timepoint],
   main = "Overall adjusted for timepoint\nColoured by timepoint")
-plotMDS(
+mds_df <- cbind(
+  data.frame(x = mds$x, y = mds$y),
+  y$samples)
+p <- ggplot(mds_df, aes(x = x, y = y)) +
+  geom_point(
+    aes(colour = timepoint, fill = timepoint, shape = cell_line),
+    size = 4) +
+  xlab(
+    paste0(
+      "Leading logFC dim 1 (",
+      round(100 * mds$var.explained[1], 0),
+      "%)")) +
+  ylab(
+    paste0(
+      "Leading logFC dim 2 (",
+      round(100 * mds$var.explained[2], 0),
+      "%)")) +
+  ggtitle("Overall adjusted for timepoint") +
+  scale_colour_manual(values = timepoint_colours) +
+  scale_fill_manual(values = timepoint_colours) +
+  scale_shape_manual(values = cell_line_shapes) +
+  guides(shape = guide_legend(
+    override.aes = list(shape = cell_line_shapes, fill = "darkgrey"))) +
+  theme_bw()
+print(p)
+mds <- plotMDS(
   y_adj,
   col = cell_line_colours[y$samples$cell_line],
   main = "Overall adjusted for timepoint\nColoured by cell_line")
 dev.off()
+
 # Interactive plots
 glimmaMDS(
   y_adj,
@@ -256,6 +404,8 @@ cm <- makeContrasts(
        GID9KO.Day_3) / 5 - WT.Day_3,
   KOs_except_GID1.Day_3_vs_WT.Day_3 =
     (GID2KO.Day_3 + GID7KO.Day_3 + GID8KO.Day_3 + GID9KO.Day_3) / 4 - WT.Day_3,
+  KOs_except_GID9.Day_3_vs_WT.Day_3 =
+    (GID1KO.Day_3 + GID2KO.Day_3 + GID7KO.Day_3 + GID8KO.Day_3) / 4 - WT.Day_3,
 
   # Comparisons at Day 6 (cell lines vs. WT)
   GID1KO.Day_6_vs_WT.Day_6 = GID1KO.Day_6 - WT.Day_6,
@@ -268,6 +418,8 @@ cm <- makeContrasts(
        GID9KO.Day_6) / 5 - WT.Day_6,
   KOs_except_GID1.Day_6_vs_WT.Day_6 =
     (GID2KO.Day_6 + GID7KO.Day_6 + GID8KO.Day_6 + GID9KO.Day_6) / 4 - WT.Day_6,
+  KOs_except_GID9.Day_6_vs_WT.Day_6 =
+    (GID1KO.Day_6 + GID2KO.Day_6 + GID7KO.Day_6 + GID8KO.Day_6) / 4 - WT.Day_6,
 
   # Comparisons at Day 9 (cell lines vs. WT)
   GID1KO.Day_9_vs_WT.Day_9 = GID1KO.Day_9 - WT.Day_9,
@@ -280,6 +432,8 @@ cm <- makeContrasts(
        GID9KO.Day_9) / 5 - WT.Day_9,
   KOs_except_GID1.Day_9_vs_WT.Day_9 =
     (GID2KO.Day_9 + GID7KO.Day_9 + GID8KO.Day_9 + GID9KO.Day_9) / 4 - WT.Day_9,
+  KOs_except_GID9.Day_9_vs_WT.Day_9 =
+    (GID1KO.Day_9 + GID2KO.Day_9 + GID7KO.Day_9 + GID8KO.Day_9) / 4 - WT.Day_9,
 
   # Comparisons at Day 12 (cell lines vs. WT)
   GID1KO.Day_12_vs_WT.Day_12 = GID1KO.Day_12 - WT.Day_12,
@@ -292,6 +446,9 @@ cm <- makeContrasts(
        GID9KO.Day_12) / 5 - WT.Day_12,
   KOs_except_GID1.Day_12_vs_WT.Day_12 =
     (GID2KO.Day_12 + GID7KO.Day_12 + GID8KO.Day_12 + GID9KO.Day_12) / 4 -
+    WT.Day_12,
+  KOs_except_GID9.Day_12_vs_WT.Day_12 =
+    (GID1KO.Day_12 + GID2KO.Day_12 + GID7KO.Day_12 + GID8KO.Day_12) / 4 -
     WT.Day_12,
 
   # Interactions (Day6 vs. Day3; cell lines vs. WT)
@@ -314,6 +471,10 @@ cm <- makeContrasts(
     ((GID2KO.Day_6 - GID2KO.Day_3) + (GID7KO.Day_6 - GID7KO.Day_3) +
        (GID8KO.Day_6 - GID8KO.Day_3) + (GID9KO.Day_6 - GID9KO.Day_3)) / 4 -
     (WT.Day_6 - WT.Day_3),
+  `(KOs_except_GID9.Day_6_vs_KOs_except_GID9.Day_3)_vs_(WT.Day_6_vs_WT.Day_3)` =
+    ((GID1KO.Day_6 - GID1KO.Day_3) + (GID2KO.Day_6 - GID2KO.Day_3) +
+       (GID7KO.Day_6 - GID7KO.Day_3) + (GID8KO.Day_6 - GID8KO.Day_3)) / 4 -
+    (WT.Day_6 - WT.Day_3),
 
   # Interactions (Day9 vs. Day6; cell lines vs. WT)
   `(GID1KO.Day_9_vs_GID1KO.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
@@ -334,6 +495,11 @@ cm <- makeContrasts(
   `(KOs_except_GID1.Day_9_vs_KOs_except_GID1.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
     ((GID2KO.Day_9 - GID2KO.Day_6) + (GID7KO.Day_9 - GID7KO.Day_6) +
        (GID8KO.Day_9 - GID8KO.Day_6) + (GID9KO.Day_9 - GID9KO.Day_6)) / 4 -
+    (WT.Day_9 - WT.Day_6),
+  `(KOs_except_GID9.Day_9_vs_KOs_except_GID9.Day_6)_vs_(WT.Day_9_vs_WT.Day_6)` =
+    ((GID1KO.Day_9 - GID1KO.Day_6) + (GID2KO.Day_9 - GID2KO.Day_6) +
+       (GID7KO.Day_9 - GID7KO.Day_6) + (GID8KO.Day_9 - GID8KO.Day_6) +
+       (GID9KO.Day_9 - GID9KO.Day_6)) / 4 -
     (WT.Day_9 - WT.Day_6),
 
   # Interactions (Day12 vs. Day9; cell lines vs. WT)
@@ -356,6 +522,11 @@ cm <- makeContrasts(
     ((GID2KO.Day_12 - GID2KO.Day_9) + (GID7KO.Day_12 - GID7KO.Day_9) +
        (GID8KO.Day_12 - GID8KO.Day_9) + (GID9KO.Day_12 - GID9KO.Day_9)) / 4 -
     (WT.Day_12 - WT.Day_9),
+  `(KOs_except_GID9.Day_12_vs_KOs_except_GID9.Day_9)_vs_(WT.Day_12_vs_WT.Day_9)` =
+    ((GID1KO.Day_12 - GID1KO.Day_9) + (GID2KO.Day_12 - GID2KO.Day_9) +
+       (GID7KO.Day_12 - GID7KO.Day_9) + (GID8KO.Day_12 - GID8KO.Day_9) +
+       (GID9KO.Day_12 - GID9KO.Day_9)) / 4 -
+    (WT.Day_12 - WT.Day_9),
 
   levels = design)
 cfit <- contrasts.fit(fit, cm)
@@ -376,6 +547,11 @@ l_deg_summary_df <- lapply(colnames(cfit), function(j) {
       pairwise_coefs <- sapply(
         setdiff(levels(y$samples$cell_line), c("WT", "GID1KO")),
         function(cl)  gsub("KOs\\_except\\_GID1", cl, j))
+      n_pairwise <- 4
+    } else if (grepl("except_GID9", j)) {
+      pairwise_coefs <- sapply(
+        setdiff(levels(y$samples$cell_line), c("WT", "GID9KO")),
+        function(cl)  gsub("KOs\\_except\\_GID9", cl, j))
       n_pairwise <- 4
     } else {
       pairwise_coefs <- sapply(
@@ -471,7 +647,7 @@ lapply(colnames(cfit), function(j) {
   # 1. Samples ordered by `group`.
   pheatmap(
     lcpm[
-      rownames(topTable(cfit, coef = j, n = 100, p.value = 0.05)),
+      rownames(topTable(cfit, coef = j, n = 50, p.value = 0.05)),
       order(y$samples$group)],
     scale = "row",
     color = colorRampPalette(c("blue","white","red"))(100),
@@ -491,7 +667,7 @@ lapply(colnames(cfit), function(j) {
 
   # 2. Samples clustered by expression pattern.
   pheatmap(
-    lcpm[rownames(topTable(cfit, coef = j, n = 100, p.value = 0.05)), ],
+    lcpm[rownames(topTable(cfit, coef = j, n = 50, p.value = 0.05)), ],
     scale = "row",
     color = colorRampPalette(c("blue","white","red"))(100),
     fontsize_row = 6,
@@ -514,7 +690,7 @@ lapply(colnames(cfit), function(j) {
   #    by expression pattern.
   jj <- y$samples$group %in% names(cm[, j][cm[, j] != 0])
   pheatmap(
-    lcpm[rownames(topTable(cfit, coef = j, n = 100, p.value = 0.05)), jj],
+    lcpm[rownames(topTable(cfit, coef = j, n = 50, p.value = 0.05)), jj],
     scale = "row",
     color = colorRampPalette(c("blue","white","red"))(100),
     fontsize_row = 6,
@@ -600,21 +776,370 @@ lapply(colnames(cfit), function(j) {
     here("output", "DEGs", paste0(j, ".camera.csv")))
 })
 
-# NOTE: fry() is a self-contained gene set test.
-lapply(colnames(cfit), function(j) {
+# Lasonder sex-linked gene expression ------------------------------------------
+
+# See email from Danu on 2024-02-01:
+
+# "A previous study isolated RNAs that were highly expressed in either males or
+# females, and therefore based off their ratio in either sex classified genes
+# as being male or female specific. I’ve highlighted the Top100 male or female
+# genes in the attached file. Could we have a look at how these genes react in
+# the GIDKO samples compared to the wild type? This file is the Lasonder 2016 set."
+
+dir.create(here("output", "Lasonder"))
+
+male_genes_tbl <- readxl::read_excel(
+  here("data", "gene_lists", "Lasonder 2016_Top100 male and female genes.xlsx"),
+  range = "A2:E99")
+male_genes_tbl[!male_genes_tbl$`Male genes` %in% rownames(y), ] |>
+  knitr::kable(caption = "Male genes not tested in DE analysis.")
+male_genes_tbl[
+  !male_genes_tbl$`Male genes` %in% rownames(y) &
+    male_genes_tbl$`Male genes` %in% rownames(sce), ] |>
+  knitr::kable(caption = "Male genes not tested in DE analysis but in dataset.")
+female_genes_tbl <- readxl::read_excel(
+  here("data", "gene_lists", "Lasonder 2016_Top100 male and female genes.xlsx"),
+  range = "G2:K99")
+female_genes_tbl[!female_genes_tbl$`Female genes` %in% rownames(y), ] |>
+  knitr::kable(caption = "Female genes not tested in DE analysis.")
+female_genes_tbl[
+  !female_genes_tbl$`Female genes` %in% rownames(y) &
+    female_genes_tbl$`Female genes` %in% rownames(sce), ] |>
+  knitr::kable(caption = "Female genes not tested in DE analysis but in dataset.")
+
+# Male genes
+male_genes <- intersect(male_genes_tbl$`Male genes`, rownames(lcpm))
+# 1. Samples ordered by `group`.
+pheatmap(
+  lcpm[male_genes, order(y$samples$group)],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, "group", drop = FALSE],
+  main = "Lasonder male genes",
+  annotation_colors = list(group = group_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = FALSE,
+  filename = here("output", "Lasonder", "Lasonder_male_genes.ordered.pdf"),
+  width = 12,
+  height = 12)
+# 2. Samples clustered by expression pattern.
+pheatmap(
+  lcpm[male_genes, ],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, c("timepoint", "cell_line")],
+  main = "Lasonder male genes",
+  annotation_colors = list(
+    cell_line = cell_line_colours,
+    timepoint = timepoint_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = TRUE,
+  filename = here("output", "Lasonder", "Lasonder_male_genes.clustered.pdf"),
+  width = 12,
+  height = 12)
+
+# Female genes
+female_genes <- intersect(female_genes_tbl$`Female genes`, rownames(lcpm))
+# 1. Samples ordered by `group`.
+pheatmap(
+  lcpm[female_genes, ],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, "group", drop = FALSE],
+  main = "Lasonder female genes",
+  annotation_colors = list(group = group_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = FALSE,
+  filename = here("output", "Lasonder", "Lasonder_female_genes.ordered.pdf"),
+  width = 12,
+  height = 12)
+# 2. Samples clustered by expression pattern.
+pheatmap(
+  lcpm[female_genes, order(y$samples$group)],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, c("timepoint", "cell_line")],
+  main = "Lasonder female genes",
+  annotation_colors = list(
+    cell_line = cell_line_colours,
+    timepoint = timepoint_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = TRUE,
+  filename = here("output", "Lasonder", "Lasonder_female_genes.clustered.pdf"),
+  width = 12,
+  height = 12)
+
+# Male and female
+lasonder_genes <- c(male_genes, female_genes)
+# 1. Samples ordered by `group`.
+pheatmap(
+  lcpm[lasonder_genes, order(y$samples$group)],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, "group", drop = FALSE],
+  annotation_row = data.frame(
+    sex = c(
+      rep("Male", length(male_genes)),
+      rep("Female", length(female_genes))),
+    row.names = lasonder_genes),
+  main = "Lasonder sex genes",
+  annotation_colors = list(
+    group = group_colours,
+    sex = c(Male = "skyblue3", Female = "deeppink")),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = FALSE,
+  filename = here("output", "Lasonder", "Lasonder_sex_genes.ordered.pdf"),
+  width = 12,
+  height = 12)
+# 2. Samples clustered by expression pattern.
+pheatmap(
+  lcpm[lasonder_genes, ],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, c("timepoint", "cell_line")],
+  annotation_row = data.frame(
+    sex = c(
+      rep("Male", length(male_genes)),
+      rep("Female", length(female_genes))),
+    row.names = lasonder_genes),
+  main = "Lasonder sex genes",
+  annotation_colors = list(
+    group = group_colours,
+    sex = c(Male = "skyblue3", Female = "deeppink")),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = TRUE,
+  filename = here("output", "Lasonder", "Lasonder_sex_genes.clustered.pdf"),
+  width = 12,
+  height = 12)
+
+# Formal gene set analysis of Lasonder sex genes.
+lasonder_index <- ids2indices(
+  list(male = male_genes, female = female_genes, lasonder = lasonder_genes),
+  rownames(cfit))
+pdf(
+  here("output", "Lasonder", "Lasonder.barcodeplots.pdf"),
+  width = 5,
+  height = 5)
+l_of_fry <- lapply(colnames(cfit), function(j) {
   message(j)
-  f <- fry(cfit$EList, idx, design, contrast = cm[, j])
-  f$GO <- rownames(f)
-  f <- dplyr::left_join(f, gaf$TERM2NAME, by = c("GO" = "GOID"))
-  rownames(f) <- f$GO
-  f <- f[
-    ,
-    c("TERM", "NGenes", "Direction", "PValue", "FDR", "PValue.Mixed",
-      "FDR.Mixed")]
-  write.csv(
-    f,
-    here("output", "DEGs", paste0(j, ".fry.csv")))
+  # TODO: Incorporate gene.weights? Something like log(Ratio) where Ratio comes
+  #       from male_genes_tbl and female_genes_tbl?
+  barcodeplot(
+    statistics = cfit$t[, j],
+    index = lasonder_index$female,
+    index2 = lasonder_index$male,
+    xlab = "t",
+    col.bars = c("deeppink", "skyblue3"),
+    main = j)
+  barcodeplot(
+    statistics = cfit$t[, j],
+    index = lasonder_index$lasonder,
+    xlab = "t",
+    main = j,
+    sub = "Lasander male and female genes")
+  # NOTE: fry() is a self-contained gene set test.
+  fry(
+    y = cfit$EList,
+    index = lasonder_index,
+    design = design,
+    contrast = cm[, j, drop = FALSE])
 })
+dev.off()
+names(l_of_fry) <- colnames(cfit)
+# TODO: Male genes start to 'flatline' in the barcode plots by the time we get
+#       to the Day_12_vs_Day_9 comparisons. This is more obvious in some cell
+#       lines (e.g., WTs) than others; discuss with Danu.
+# TODO: The KO vs WT comparisons at Day 9 and Day 12 show downregulation of
+#       sex-specific genes, particularly female-specific genes, in KOs;
+#       discuss with Danu.
+
+fry_female_df <- do.call(
+  rbind,
+  lapply(l_of_fry, function(fry) {
+    fry["female", , drop = FALSE]
+  }))
+fry_male_df <- do.call(
+  rbind,
+  lapply(l_of_fry, function(fry) {
+    fry["male", , drop = FALSE]
+  }))
+fry_lasonnder_df <- do.call(
+  rbind,
+  lapply(l_of_fry, function(fry) {
+    fry["lasonder", , drop = FALSE]
+  }))
+
+# TODO: Look at the 'most significant' comparisons; discuss with Danu.
+head(
+  fry_lasonnder_df[
+    order(
+      fry_lasonnder_df$Direction,
+      fry_lasonnder_df$FDR,
+      decreasing = c(FALSE, FALSE),
+      method = "radix"), ])
+head(
+  fry_lasonnder_df[
+    order(
+      fry_lasonnder_df$Direction,
+      fry_lasonnder_df$FDR,
+      decreasing = c(TRUE, FALSE),
+      method = "radix"), ])
+
+# Guerreiro transcriptional repression program gene expression -----------------
+
+# See email from Danu on 2024-02-01:
+
+# "We would like to look at genes that are known to be regulated by a
+#  transcriptional repression programme in Plasmodium. I’ve attached the genes
+#  of interest in here as well. Could we look at how they relate to the GIDKO
+#  parasites at Day3/6/9/12? I’m sure they would be altered at Day 12 in the KO
+#  samples compared to WT as those parasites are arrested at an earlier
+#  developmental stage. This file is the Guerreiro 2014 set."
+
+dir.create(here("output", "Guerreiro"))
+
+# TODO: Is there a version of this dataset with logFCs?
+transcriptional_repression_tbl <- readxl::read_excel(
+  here(
+    "data",
+    "gene_lists",
+    "Guerreiro 2014_Genes common to DOZI and CITH IP and down regulated in DOZI KO.xlsx"))
+transcriptional_repression <- c(
+  colnames(transcriptional_repression_tbl),
+  unlist(transcriptional_repression_tbl))
+names(transcriptional_repression) <- NULL
+transcriptional_repression <- transcriptional_repression[
+  !is.na(transcriptional_repression)]
+
+data.frame(gene = setdiff(transcriptional_repression, rownames(y))) |>
+  knitr::kable(
+    caption = "Guerreiro transcriptional repression program not tested in DE analysis.")
+
+data.frame(gene = intersect(
+  setdiff(transcriptional_repression, rownames(y)),
+  rownames(sce))) |>
+  knitr::kable(
+    caption = "Guerreiro transcriptional repression program not tested in DE analysis but in dataset.")
+
+transcriptional_repression <- intersect(
+  transcriptional_repression, rownames(y))
+
+# 1. Samples ordered by `group`.
+pheatmap(
+  lcpm[transcriptional_repression, order(y$samples$group)],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, "group", drop = FALSE],
+  main = "Guerreiro genes",
+  annotation_colors = list(group = group_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = FALSE,
+  filename = here("output", "Guerreiro", "Guerreiro_genes.ordered.pdf"),
+  width = 12,
+  height = 12)
+# 2. Samples clustered by expression pattern.
+pheatmap(
+  lcpm[transcriptional_repression, ],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, c("timepoint", "cell_line")],
+  main = "Guerreiro genes",
+  annotation_colors = list(
+    cell_line = cell_line_colours,
+    timepoint = timepoint_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = TRUE,
+  filename = here("output", "Guerreiro", "Guerreiro_genes.clustered.pdf"),
+  width = 12,
+  height = 12)
+
+# Formal gene set analysis of Lasonder sex genes.
+guerreiro_index <- ids2indices(
+  list(guerreiro = transcriptional_repression),
+  rownames(cfit))
+pdf(
+  here("output", "Guerreiro", "Guerreiro.barcodeplots.pdf"),
+  width = 5,
+  height = 5)
+l_of_fry <- lapply(colnames(cfit), function(j) {
+  message(j)
+  # TODO: Incorporate gene.weights? Don't have logFCs, but will ask.
+  barcodeplot(
+    statistics = cfit$t[, j],
+    index = guerreiro_index[[1]],
+    xlab = "t",
+    main = j,
+    sub = "Guerreiro transcriptional repression program genes")
+  # NOTE: fry() is a self-contained gene set test.
+  fry(
+    y = cfit$EList,
+    index = guerreiro_index,
+    design = design,
+    contrast = cm[, j, drop = FALSE])
+})
+dev.off()
+names(l_of_fry) <- colnames(cfit)
+fry_guerreiro_df <- do.call(
+  rbind,
+  lapply(l_of_fry, function(fry) {
+    fry["guerreiro", , drop = FALSE]
+  }))
+
+# TODO: Look at the 'most significant' comparisons; discuss with Danu.
+head(
+  fry_guerreiro_df[
+    order(
+      fry_guerreiro_df$Direction,
+      fry_lasonnder_df$PValue,
+      decreasing = c(FALSE, FALSE),
+      method = "radix"), ])
+head(
+  fry_guerreiro_df[
+    order(
+      fry_guerreiro_df$Direction,
+      fry_lasonnder_df$PValue,
+      decreasing = c(TRUE, FALSE),
+      method = "radix"), ])
 
 # Time course analysis ---------------------------------------------------------
 
@@ -908,3 +1433,8 @@ topKEGG(l_of_keg_any_ko[[1]], n = 5)
 
 # - [ ] Is it possible to re-arrange the row dendograms (timecourse stuff) to
 #       have the groups in the same order as the legend?
+# - [ ] To get exemplars of each cluster of timecourse genes, can use gc in
+#       conjunction with the gene list (and then re-order by significance, if
+#       necessary).
+# - [ ] If it's useful to highlight Lasonder and/or Guerreiro genes in
+#       timecourse heatmap then need to include it in the above.
