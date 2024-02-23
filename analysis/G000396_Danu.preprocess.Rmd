@@ -136,7 +136,7 @@ group_colours <- setNames(
 
 This is a large and somewhat complex experiment.
 There are `r number(nlevels(sce$sample) - 1, big.mark = ",")` biological samples, each done in technical duplicate for a total of `r number(sum(sce$sample_type != "empty"), big.mark = ",")` mini-bulk libraries.
-There are also`r number(sum(sce$sample_type == "empty"), big.mark = ",")` negative control 'empty' libraries^[The negative control samples have `N/A` recorded for the various sample metadata.].
+There are also `r number(sum(sce$sample_type == "empty"), big.mark = ",")` negative control 'empty' libraries^[The negative control samples have `N/A` recorded for the various sample metadata.].
 For now, we will retain the negative control 'empty' libraries mini-bulk libraries for QC purposes.
 The tables below summarise the samples in this experiment.
 
