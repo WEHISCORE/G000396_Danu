@@ -125,7 +125,7 @@ pdf(here("output", "MDS", "MDS.pdf"), width = 8, height = 7)
 par(mfrow = c(1, 1))
 mds <- plotMDS(
   y,
-  col = timepoint_colours[y$samples$timepoint],
+  col = timepoint_colours[as.character(y$samples$timepoint)],
   main = "Overall\nColoured by timepoint")
 mds_df <- cbind(
   data.frame(x = mds$x, y = mds$y),
@@ -155,7 +155,8 @@ print(p)
 
 mds <- plotMDS(
   y[, y$samples$timepoint == "Day_3"],
-  col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_3"]],
+  col = cell_line_colours[
+    as.character(y$samples$cell_line[y$samples$timepoint == "Day_3"])],
   main = "Day 3\nColoured by cell line")
 mds_df <- cbind(
   data.frame(x = mds$x, y = mds$y),
@@ -183,7 +184,8 @@ print(p)
 
 mds <- plotMDS(
   y[, y$samples$timepoint == "Day_6"],
-  col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_6"]],
+  col = cell_line_colours[
+    as.character(y$samples$cell_line[y$samples$timepoint == "Day_6"])],
   main = "Day 6\nColoured by cell line")
 mds_df <- cbind(
   data.frame(x = mds$x, y = mds$y),
@@ -211,7 +213,8 @@ print(p)
 
 mds <- plotMDS(
   y[, y$samples$timepoint == "Day_9"],
-  col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_9"]],
+  col = cell_line_colours[
+    as.character(y$samples$cell_line[y$samples$timepoint == "Day_9"])],
   main = "Day 9\nColoured by cell line")
 mds_df <- cbind(
   data.frame(x = mds$x, y = mds$y),
@@ -239,7 +242,8 @@ print(p)
 
 mds <- plotMDS(
   y[, y$samples$timepoint == "Day_12"],
-  col = cell_line_colours[y$samples$cell_line[y$samples$timepoint == "Day_12"]],
+  col = cell_line_colours[
+    as.character(y$samples$cell_line[y$samples$timepoint == "Day_12"])],
   main = "Day 12\nColoured by cell line")
 mds_df <- cbind(
   data.frame(x = mds$x, y = mds$y),
@@ -304,7 +308,7 @@ pdf(
 par(mfrow = c(1, 1))
 mds <- plotMDS(
   y_adj,
-  col = timepoint_colours[y$samples$timepoint],
+  col = timepoint_colours[as.character(y$samples$timepoint)],
   main = "Overall adjusted for timepoint\nColoured by timepoint")
 mds_df <- cbind(
   data.frame(x = mds$x, y = mds$y),
@@ -333,7 +337,7 @@ p <- ggplot(mds_df, aes(x = x, y = y)) +
 print(p)
 mds <- plotMDS(
   y_adj,
-  col = cell_line_colours[y$samples$cell_line],
+  col = cell_line_colours[as.character(y$samples$cell_line)],
   main = "Overall adjusted for timepoint\nColoured by cell_line")
 dev.off()
 
@@ -624,7 +628,7 @@ lapply(colnames(cfit), function(j) {
     dge = y,
     coef = j,
     anno = y$genes[, c("GENEID", "Name", "description")],
-    sample.cols = unname(group_colours[y$samples$group]),
+    sample.cols = unname(group_colours[as.character(y$samples$group)]),
     html = here(
       "output",
       "Glimma",
