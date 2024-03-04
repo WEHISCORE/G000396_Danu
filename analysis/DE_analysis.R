@@ -1,6 +1,6 @@
 # DE analysis of mini-bulk data for G000396_Danu
 # Peter Hickey
-# 2024-02-15
+# 2024-03-04
 
 # Setup ------------------------------------------------------------------------
 
@@ -608,10 +608,7 @@ l_deg_summary_df <- lapply(colnames(cfit), function(j) {
 
   # Write topTable results to CSV
   write.csv(
-    flattenDF(
-      tt[order(tt$adj.P.Val),
-         c("GENEID", "Name", "description", "logFC", "AveExpr", "t",
-           "P.Value", "adj.P.Val", "B")]),
+    flattenDF(tt[order(tt$adj.P.Val), ]),
     here("output", "DEGs", paste0(j, ".DEGs.csv")))
 
   return(deg_summary_df)
@@ -1194,7 +1191,7 @@ tt_gid9 <- topTable(
   p.value = 1,
   sort.by = "F")
 # NOTE: This is an ANOVA-like test.
-tt_any_ko <-  topTable(
+tt_any_ko <- topTable(
   fit_tc,
   coef = c(
     "GID1KO:X1", "GID1KO:X2", "GID1KO:X3",
