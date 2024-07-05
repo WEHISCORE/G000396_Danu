@@ -91,6 +91,32 @@ barcodeplot(
   index = x$adj.P.Val < 0.05,
   gene.weights = x$logFC[x$adj.P.Val < 0.05])
 
+library(ggplot2)
+library(plotly)
+library(cowplot)
+p <- ggplot(
+  data.frame(
+    x = x$logFC,
+    y = y$D6.GID7_D6.IGP_logFC,
+    col = dplyr::case_when(
+      x$adj.P.Val < 0.05 & y$D6.GID7_D6.IGP_adj.P.Val > 0.05 ~ "RNA",
+      x$adj.P.Val > 0.05 & y$D6.GID7_D6.IGP_adj.P.Val < 0.05 ~ "Protein",
+      x$adj.P.Val < 0.05 & y$D6.GID7_D6.IGP_adj.P.Val < 0.05 ~ "Both",
+      TRUE ~ "Non-sig"),
+    gene = rownames(x))[i, ]) +
+  geom_point(aes(x = x, y = y, colour = col, label = gene)) +
+  scale_colour_manual(
+    values = c(
+      "RNA" = "dodgerblue",
+      "Protein" = "orange",
+      "Both" = "red",
+      "Non-sig" = "black"),
+    name = "DE status") +
+  theme_cowplot() +
+  xlab("RNA-seq: logFC") +
+  ylab("Proteomics: logFC") +
+  ggtitle("GID7KO.Day_6 vs. WT.Day_6")
+ggplotly(p)
 
 # TODOs ------------------------------------------------------------------------
 
