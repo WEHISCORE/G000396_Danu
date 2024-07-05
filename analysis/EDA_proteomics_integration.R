@@ -53,23 +53,31 @@ table(
 
 x <- rna_seq_df[match(common, rna_seq_df$GENEID), ]
 y <- proteomics_df[match(common, proteomics_df$Genes), ]
-col <- dplyr::case_when(
-  x$adj.P.Val < 0.05 & y$D6.GID7_D6.IGP_adj.P.Val > 0.05 ~ "dodgerblue",
-  x$adj.P.Val > 0.05 & y$D6.GID7_D6.IGP_adj.P.Val < 0.05 ~ "orange",
-  x$adj.P.Val < 0.05 & y$D6.GID7_D6.IGP_adj.P.Val < 0.05 ~ "red",
-  TRUE ~ "black")
-
-# Some randomization to mitigate overplotting.
+tmp_df <- data.frame(
+  x = x$logFC,
+  y = y$D6.GID7_D6.IGP_logFC,
+  col = dplyr::case_when(
+    x$adj.P.Val < 0.05 & y$D6.GID7_D6.IGP_adj.P.Val > 0.05 ~ "RNA",
+    x$adj.P.Val > 0.05 & y$D6.GID7_D6.IGP_adj.P.Val < 0.05 ~ "Protein",
+    x$adj.P.Val < 0.05 & y$D6.GID7_D6.IGP_adj.P.Val < 0.05 ~ "Both",
+    TRUE ~ "Non-sig"),
+  gene = rownames(x))
+# NOTE: Some randomization to mitigate overplotting.
 set.seed(666)
-i <- sample(nrow(x))
+tmp_df <- tmp_df[sample(nrow(tmp_df)), ]
+
 pdf(here("tmp/EDA_proteomics_integration.pdf"), 6, 6)
 plot(
-  x[i, "logFC"],
-  y[i, "D6.GID7_D6.IGP_logFC"],
+  tmp_df$x,
+  tmp_df$y,
   xlab = "RNA-seq: logFC",
   ylab = "Proteomics: logFC",
   main = "GID7KO.Day_6 vs. WT.Day_6",
-  col = col,
+  col = dplyr::case_when(
+  tmp_df$col == "RNA" ~ "dodgerblue",
+  tmp_df$col == "Protein" ~ "orange",
+  tmp_df$col == "Both" ~ "red",
+  tmp_df$col == "Non-sig" ~ "black"),
   pch = 16,
   cex = 0.8)
 legend(
@@ -78,32 +86,13 @@ legend(
   pch = 16,
   col = c("black", "dodgerblue", "orange", "red"))
 dev.off()
-cor(x$logFC, y$D6.GID7_D6.IGP_logFC)
+cor(tmp_df$x, tmp_df$y)
 
-library(limma)
-barcodeplot(
-  x$logFC,
-  index = y$D6.GID7_D6.IGP_adj.P.Val < 0.05,
-  gene.weights = y$D6.GID7_D6.IGP_logFC[y$D6.GID7_D6.IGP_adj.P.Val < 0.05])
-
-barcodeplot(
-  y$D6.GID7_D6.IGP_logFC,
-  index = x$adj.P.Val < 0.05,
-  gene.weights = x$logFC[x$adj.P.Val < 0.05])
-
+# Interactive version
 library(ggplot2)
 library(plotly)
 library(cowplot)
-p <- ggplot(
-  data.frame(
-    x = x$logFC,
-    y = y$D6.GID7_D6.IGP_logFC,
-    col = dplyr::case_when(
-      x$adj.P.Val < 0.05 & y$D6.GID7_D6.IGP_adj.P.Val > 0.05 ~ "RNA",
-      x$adj.P.Val > 0.05 & y$D6.GID7_D6.IGP_adj.P.Val < 0.05 ~ "Protein",
-      x$adj.P.Val < 0.05 & y$D6.GID7_D6.IGP_adj.P.Val < 0.05 ~ "Both",
-      TRUE ~ "Non-sig"),
-    gene = rownames(x))[i, ]) +
+p <- ggplot(tmp_df) +
   geom_point(aes(x = x, y = y, colour = col, label = gene)) +
   scale_colour_manual(
     values = c(
@@ -117,6 +106,19 @@ p <- ggplot(
   ylab("Proteomics: logFC") +
   ggtitle("GID7KO.Day_6 vs. WT.Day_6")
 ggplotly(p)
+
+library(limma)
+barcodeplot(
+  x$logFC,
+  index = y$D6.GID7_D6.IGP_adj.P.Val < 0.05,
+  gene.weights = y$D6.GID7_D6.IGP_logFC[y$D6.GID7_D6.IGP_adj.P.Val < 0.05])
+
+barcodeplot(
+  y$D6.GID7_D6.IGP_logFC,
+  index = x$adj.P.Val < 0.05,
+  gene.weights = x$logFC[x$adj.P.Val < 0.05])
+
+
 
 # TODOs ------------------------------------------------------------------------
 
