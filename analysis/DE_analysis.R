@@ -1,6 +1,6 @@
 # DE analysis of mini-bulk data for G000396_Danu
 # Peter Hickey
-# 2024-03-04
+# 2024-11-26
 
 # Setup ------------------------------------------------------------------------
 
@@ -1139,6 +1139,301 @@ head(
     order(
       fry_guerreiro_df$Direction,
       fry_lasonnder_df$PValue,
+      decreasing = c(TRUE, FALSE),
+      method = "radix"), ])
+
+# Processing bodies (P-body), mRNA binding proteins & Translation gene sets ----
+
+dir.create(here("output", "Pbody_mRNA_translation"))
+
+# See email from Danu on 2024-11-25:
+
+# "Here are the lists of the genes we are looking at. There are 3 gene sets all together [Translation, mRNA binding proteins, Processing bodies (P-body)].
+# Could we assemble barcode plots for these sets similar to what you previously did for the Guerreiro (translational repression genes) and the Lasonder (male and female specific markers)?
+# The data sets we’re most interested in comparing are:
+#
+# - All knockouts vs WT at Day 3
+# - All knockouts vs WT at Day 6
+# - All knockouts vs WT at Day 9
+# - All knockouts vs WT at Day 12"
+
+pbody_tbl <- readxl::read_excel(
+  here("data", "gene_lists", "/Danu_Barcode_updated.xlsx"),
+  sheet = "Pbody")
+pbody_tbl[!pbody_tbl$Plasmodium_Pbody %in% rownames(y), ] |>
+  knitr::kable(caption = "'Processing body' genes not tested in DE analysis.")
+pbody_tbl[
+  !pbody_tbl$Plasmodium_Pbody %in% rownames(y) &
+    pbody_tbl$Plasmodium_Pbody %in% rownames(sce), ] |>
+  knitr::kable(
+    caption = "'Processing body' genes not tested in DE analysis but in dataset.")
+mrna_tbl <- readxl::read_excel(
+  here("data", "gene_lists", "/Danu_Barcode_updated.xlsx"),
+  sheet = "mRNA")
+mrna_tbl[!mrna_tbl$`Plasmodium Identifiers` %in% rownames(y), ] |>
+  knitr::kable(
+    caption = "'mRNA binding protein' genes not tested in DE analysis.")
+mrna_tbl[
+  !mrna_tbl$`Plasmodium Identifiers` %in% rownames(y) &
+    mrna_tbl$`Plasmodium Identifiers` %in% rownames(sce), ] |>
+  knitr::kable(
+    caption = "'mRNA binding protein' genes not tested in DE analysis but in dataset.")
+translation_tbl <- readxl::read_excel(
+  here("data", "gene_lists", "/Danu_Barcode_updated.xlsx"),
+  sheet = "Translation")
+translation_tbl[!translation_tbl$`Gene ID` %in% rownames(y), ] |>
+  knitr::kable(
+    caption = "'Translation' genes not tested in DE analysis.")
+translation_tbl[
+  !translation_tbl$`Gene ID` %in% rownames(y) &
+    translation_tbl$`Gene ID` %in% rownames(sce), ] |>
+  knitr::kable(
+    caption = "'Translation' genes not tested in DE analysis but in dataset.")
+
+# Processing body genes
+pbody_genes <- intersect(pbody_tbl$Plasmodium_Pbody, rownames(lcpm))
+# 1. Samples ordered by `group`.
+pheatmap(
+  lcpm[pbody_genes, order(y$samples$group)],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, "group", drop = FALSE],
+  main = "'Processing body' genes",
+  annotation_colors = list(group = group_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = FALSE,
+  filename = here(
+    "output",
+    "Pbody_mRNA_translation",
+    "Processing_body_genes.ordered.pdf"),
+  width = 12,
+  height = 12)
+# 2. Samples clustered by expression pattern.
+pheatmap(
+  lcpm[pbody_genes, ],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, c("timepoint", "cell_line")],
+  main = "Lasonder male genes",
+  annotation_colors = list(
+    cell_line = cell_line_colours,
+    timepoint = timepoint_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = TRUE,
+  filename = here(
+    "output",
+    "Pbody_mRNA_translation",
+    "Processing_body_genes.clustered.pdf"),
+  width = 12,
+  height = 12)
+
+# mRNA binding protein genes
+mrna_genes <- intersect(mrna_tbl$`Plasmodium Identifiers`, rownames(lcpm))
+# 1. Samples ordered by `group`.
+pheatmap(
+  lcpm[mrna_genes, order(y$samples$group)],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, "group", drop = FALSE],
+  main = "'mRNA binding protein' genes",
+  annotation_colors = list(group = group_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = FALSE,
+  filename = here(
+    "output",
+    "Pbody_mRNA_translation",
+    "mRNA_binding_protein_genes.ordered.pdf"),
+  width = 12,
+  height = 12)
+# 2. Samples clustered by expression pattern.
+pheatmap(
+  lcpm[mrna_genes, ],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, c("timepoint", "cell_line")],
+  main = "'mRNA binding protein' genes",
+  annotation_colors = list(
+    cell_line = cell_line_colours,
+    timepoint = timepoint_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = TRUE,
+  filename = here(
+    "output",
+    "Pbody_mRNA_translation",
+    "mRNA_binding_protein_genes.clustered.pdf"),
+  width = 12,
+  height = 12)
+
+# Translation genes
+translation_genes <- intersect(translation_tbl$`Gene ID`, rownames(lcpm))
+# 1. Samples ordered by `group`.
+pheatmap(
+  lcpm[translation_genes, order(y$samples$group)],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, "group", drop = FALSE],
+  main = "'Translation' genes",
+  annotation_colors = list(group = group_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = FALSE,
+  filename = here(
+    "output",
+    "Pbody_mRNA_translation",
+    "Translation_genes.ordered.pdf"),
+  width = 12,
+  height = 12)
+# 2. Samples clustered by expression pattern.
+pheatmap(
+  lcpm[translation_genes, ],
+  scale = "row",
+  color = colorRampPalette(c("blue","white","red"))(100),
+  fontsize_row = 6,
+  fontsize_col = 5,
+  fontsize = 6,
+  annotation_col = y$samples[, c("timepoint", "cell_line")],
+  main = "'Translation' genes",
+  annotation_colors = list(
+    cell_line = cell_line_colours,
+    timepoint = timepoint_colours),
+  angle_col = 45,
+  treeheight_row = 30,
+  treeheight_col = 30,
+  cluster_cols = TRUE,
+  filename = here(
+    "output",
+    "Pbody_mRNA_translation",
+    "Translation_genes.clustered.pdf"),
+  width = 12,
+  height = 12)
+
+# Formal gene set analysis of P-body, mRNA binding protein, and translation
+# genes
+pbody_mrna_translation_index <- ids2indices(
+  list(pbody = pbody_genes, mrna = mrna_genes, translation = translation_genes),
+  rownames(cfit))
+pdf(
+  here(
+    "output",
+    "Pbody_mRNA_translation",
+    "Pbody_mRNA_translation.barcodeplots.pdf"),
+  width = 5,
+  height = 5)
+l_of_fry <- lapply(colnames(cfit), function(j) {
+  message(j)
+  # TODO: Incorporate gene.weights? Something like log(Ratio) where Ratio comes
+  #       from male_genes_tbl and female_genes_tbl?
+  barcodeplot(
+    statistics = cfit$t[, j],
+    index = pbody_mrna_translation_index$pbody,
+    xlab = "t",
+    main = j,
+    sub = "'Processing bodies' genes")
+  barcodeplot(
+    statistics = cfit$t[, j],
+    index = pbody_mrna_translation_index$mrna,
+    xlab = "t",
+    main = j,
+    sub = "'mRNA binding protein' genes")
+  barcodeplot(
+    statistics = cfit$t[, j],
+    index = pbody_mrna_translation_index$translation,
+    xlab = "t",
+    main = j,
+    sub = "'Translation' genes")
+  # NOTE: fry() is a self-contained gene set test.
+  fry(
+    y = cfit$EList,
+    index = pbody_mrna_translation_index,
+    design = design,
+    contrast = cm[, j, drop = FALSE])
+})
+dev.off()
+names(l_of_fry) <- colnames(cfit)
+
+fry_pbody_df <- do.call(
+  rbind,
+  lapply(l_of_fry, function(fry) {
+    fry["pbody", , drop = FALSE]
+  }))
+fry_mrna_df <- do.call(
+  rbind,
+  lapply(l_of_fry, function(fry) {
+    fry["mrna", , drop = FALSE]
+  }))
+fry_translation_df <- do.call(
+  rbind,
+  lapply(l_of_fry, function(fry) {
+    fry["translation", , drop = FALSE]
+  }))
+
+# TODO: Look at the 'most significant' comparisons; discuss with Danu.
+head(
+  fry_pbody_df[
+    order(
+      fry_pbody_df$Direction,
+      fry_pbody_df$FDR,
+      decreasing = c(FALSE, FALSE),
+      method = "radix"), ])
+head(
+  fry_pbody_df[
+    order(
+      fry_pbody_df$Direction,
+      fry_pbody_df$FDR,
+      decreasing = c(TRUE, FALSE),
+      method = "radix"), ])
+
+head(
+  fry_mrna_df[
+    order(
+      fry_mrna_df$Direction,
+      fry_mrna_df$FDR,
+      decreasing = c(FALSE, FALSE),
+      method = "radix"), ])
+head(
+  fry_mrna_df[
+    order(
+      fry_mrna_df$Direction,
+      fry_mrna_df$FDR,
+      decreasing = c(TRUE, FALSE),
+      method = "radix"), ])
+
+head(
+  fry_translation_df[
+    order(
+      fry_translation_df$Direction,
+      fry_translation_df$FDR,
+      decreasing = c(FALSE, FALSE),
+      method = "radix"), ])
+head(
+  fry_translation_df[
+    order(
+      fry_translation_df$Direction,
+      fry_translation_df$FDR,
       decreasing = c(TRUE, FALSE),
       method = "radix"), ])
 
