@@ -1,7 +1,7 @@
 name: "G000396_Danu"
 output_dir: "../docs"
 navbar:
-  title: "G000191"
+  title: "G000396"
   left:
     - text: "Introduction"
       href: index.html
