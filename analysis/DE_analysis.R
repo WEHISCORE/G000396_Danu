@@ -1158,7 +1158,7 @@ dir.create(here("output", "Pbody_mRNA_translation"))
 # - All knockouts vs WT at Day 12"
 
 pbody_tbl <- readxl::read_excel(
-  here("data", "gene_lists", "/Danu_Barcode_updated.xlsx"),
+  here("data", "gene_lists", "Danu_Barcode_updated.xlsx"),
   sheet = "Pbody")
 pbody_tbl[!pbody_tbl$Plasmodium_Pbody %in% rownames(y), ] |>
   knitr::kable(caption = "'Processing body' genes not tested in DE analysis.")
@@ -1168,7 +1168,7 @@ pbody_tbl[
   knitr::kable(
     caption = "'Processing body' genes not tested in DE analysis but in dataset.")
 mrna_tbl <- readxl::read_excel(
-  here("data", "gene_lists", "/Danu_Barcode_updated.xlsx"),
+  here("data", "gene_lists", "Danu_Barcode_updated.xlsx"),
   sheet = "mRNA")
 mrna_tbl[!mrna_tbl$`Plasmodium Identifiers` %in% rownames(y), ] |>
   knitr::kable(
@@ -1179,7 +1179,7 @@ mrna_tbl[
   knitr::kable(
     caption = "'mRNA binding protein' genes not tested in DE analysis but in dataset.")
 translation_tbl <- readxl::read_excel(
-  here("data", "gene_lists", "/Danu_Barcode_updated.xlsx"),
+  here("data", "gene_lists", "Danu_Barcode_updated.xlsx"),
   sheet = "Translation")
 translation_tbl[!translation_tbl$`Gene ID` %in% rownames(y), ] |>
   knitr::kable(
