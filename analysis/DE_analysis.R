@@ -15,6 +15,7 @@ library(Glimma)
 library(scuttle)
 library(splines)
 library(pheatmap)
+library(distill)
 
 # Take a DataFrame with AtomicList columns and return a data.frame where these
 # columns have been flattened by paste-ing together the elements separated by
@@ -1016,6 +1017,16 @@ head(
       decreasing = c(TRUE, FALSE),
       method = "radix"), ])
 
+write.csv(
+  fry_female_df,
+  here("output", "Lasonder", "Lasonder_female_genes.fry.csv"))
+write.csv(
+  fry_male_df,
+  here("output", "Lasonder", "Lasonder_male_genes.fry.csv"))
+write.csv(
+  fry_lasonnder_df,
+  here("output", "Lasonder", "Lasonder_sex_genes.fry.csv"))
+
 # Guerreiro transcriptional repression program gene expression -----------------
 
 # See email from Danu on 2024-02-01:
@@ -1141,6 +1152,10 @@ head(
       fry_lasonnder_df$PValue,
       decreasing = c(TRUE, FALSE),
       method = "radix"), ])
+
+write.csv(
+  fry_guerreiro_df,
+  here("output", "Guerreiro", "Guerreiro_genes.fry.csv"))
 
 # Processing bodies (P-body), mRNA binding proteins & Translation gene sets ----
 
@@ -1436,6 +1451,16 @@ head(
       fry_translation_df$FDR,
       decreasing = c(TRUE, FALSE),
       method = "radix"), ])
+
+write.csv(
+  fry_pbody_df,
+  here("output", "Pbody_mRNA_translation", "Processing_body_genes.fry.csv"))
+write.csv(
+  fry_mrna_df,
+  here("output", "Pbody_mRNA_translation", "mRNA_binding_protein_genes.fry.csv"))
+write.csv(
+  fry_translation_df,
+  here("output", "Pbody_mRNA_translation", "Translation_genes.fry.csv"))
 
 # Time course analysis ---------------------------------------------------------
 
